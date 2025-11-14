@@ -335,10 +335,15 @@ void specialKeyboard(int key, int x, int y)
     switch (key)
     {
     case GLUT_KEY_UP: // 'UP' 화살표 키
-        playerZ -= moveSpeed; // Z축 음의 방향(앞으로)으로 이동
+        //playerZ -= moveSpeed; // Z축 음의 방향(앞으로)으로 이동
+        //break;
+        // 객체 이동 대신 터널 이동으로
+        tunnelOffsetZ += moveSpeed;   // 터널을 카메라 쪽으로 끌어당김 -> 앞으로 달리는 느낌
         break;
     case GLUT_KEY_DOWN: // 'DOWN' 화살표 키
-        playerZ += moveSpeed; // Z축 양의 방향(뒤로)으로 이동
+        //playerZ += moveSpeed; // Z축 양의 방향(뒤로)으로 이동
+        //break;
+        tunnelOffsetZ -= moveSpeed;   // 터널을 뒤로 밀어냄 -> 뒤로 가는 느낌
         break;
     case GLUT_KEY_LEFT: // 'LEFT' 화살표 키
         playerX -= moveSpeed; // X축 음의 방향(왼쪽)으로 이동
@@ -368,6 +373,10 @@ void Display() {
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
 
+    // 밝기 유니폼 위치 한 번 구해두기 ---------------------- test ----------
+    // --- 터널 그리기 (큐브 벽면 반복) ---
+    GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
+
     // --- 터널 그리기 (큐브 벽면 반복) ---
     int tunnelSegments = 300; // 터널 길이
     float tunnelScaleXY = 2.0f; // 터널 너비/높이 배율 (2배)
@@ -379,14 +388,23 @@ void Display() {
         // 터널 크기 조절 (X: 2배, Y: 2배, Z: 1배)
         // Z축 크기는 1.0으로 유지해야 터널 조각들이 서로 붙습니다.
         Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-        // Z축으로 터널 조각 배치
-        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
+
+        //// Z축으로 터널 조각 배치
+        //Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
+        // i번째 조각의 기본 위치 -(float)i 에 터널 이동량(tunnelOffsetZ)을 더해서
+        // 터널 전체가 앞/뒤로 밀려나게 만든다.
+        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f + tunnelOffsetZ);
+
 
         // 크기 조절 후 이동
         Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
 
         // 2. 셰이더에 이 큐브 조각의 Model 행렬 전송
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
+
+        // ★ 여기에서 세그먼트마다 밝기 번갈아 주기
+        float brightness = (i % 2 == 0) ? 0.4f : 1.0f;
+        glUniform1f(locBrightness, brightness);
 
         // 3. 큐브의 4개 벽면만 그리기
         drawCubeFace(2); // 아랫면
@@ -416,7 +434,10 @@ void Display() {
 
     // 3. 플레이어 Z 위치:
     //    *** 전역 변수 사용하도록 수정 ***
-    Mat4 modelPlayerTranslate = translate(playerX, playerY, playerZ);
+    //Mat4 modelPlayerTranslate = translate(playerX, playerY, playerZ);
+    // 아예 상수 고정해도 됨
+    Mat4 modelPlayerTranslate = translate(playerX, playerY, -5.0f);
+
 
     // 최종 Model 행렬 계산 (스케일 적용 후 이동)
     Mat4 modelPlayer = multifly(modelPlayerTranslate, modelPlayerScale);
