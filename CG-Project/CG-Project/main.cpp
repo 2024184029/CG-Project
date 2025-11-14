@@ -1,6 +1,6 @@
-//*** Çì´õÆÄÀÏ°ú ¶óÀÌºê·¯¸® Æ÷ÇÔ½ÃÅ°±â
-// Çì´õÆÄÀÏ µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ Æ÷ÇÔ µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ include µğ·ºÅä¸® Ãß°¡ÇÏ±â
-// ¶óÀÌºê·¯¸® µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ ¶óÀÌºê·¯¸® µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ lib µğ·ºÅä¸® Ãß°¡ÇÏ±â
+ï»¿//*** í—¤ë”íŒŒì¼ê³¼ ë¼ì´ë¸ŒëŸ¬ë¦¬ í¬í•¨ì‹œí‚¤ê¸°
+// í—¤ë”íŒŒì¼ ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°: í”„ë¡œì íŠ¸ ë©”ë‰´ -> ë§¨ ì•„ë˜ì— ìˆëŠ” í”„ë¡œì íŠ¸ ì†ì„± -> VC++ ë””ë ‰í† ë¦¬ -> ì¼ë°˜ì˜ í¬í•¨ ë””ë ‰í† ë¦¬ -> í¸ì§‘ìœ¼ë¡œ ê°€ì„œ í˜„ì¬ ë””ë ‰í† ë¦¬ì˜ include ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°
+// ë¼ì´ë¸ŒëŸ¬ë¦¬ ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°: í”„ë¡œì íŠ¸ ë©”ë‰´ -> ë§¨ ì•„ë˜ì— ìˆëŠ” í”„ë¡œì íŠ¸ ì†ì„± -> VC++ ë””ë ‰í† ë¦¬ -> ì¼ë°˜ì˜ ë¼ì´ë¸ŒëŸ¬ë¦¬ ë””ë ‰í† ë¦¬ -> í¸ì§‘ìœ¼ë¡œ ê°€ì„œ í˜„ì¬ ë””ë ‰í† ë¦¬ì˜ lib ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°
 
 
 #define _CRT_SECURE_NO_WARNINGS 
@@ -34,16 +34,20 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-// ------------ Àü¿ªº¯¼ö -------------
+// ------------ ì „ì—­ë³€ìˆ˜ -------------
 GLuint vaoCube[6];
-GLuint vaoLaneLine;   // ¹Ù´Ú ·¹ÀÎ ¸¸µé±â À§ÇÑ VAO
+GLuint vaoLaneLine;   // ë°”ë‹¥ ë ˆì¸ ë§Œë“¤ê¸° ìœ„í•œ VAO
 
-float aspect = 1.0f; // Á¾È¾ºñ
+float aspect = 1.0f; // ì¢…íš¡ë¹„
+// +++ í”Œë ˆì´ì–´ ìœ„ì¹˜ ë³€ìˆ˜ ì¶”ê°€ +++
+float playerX = 0.0f;
+float playerZ = -5.0f; // ì´ˆê¸° Z ìœ„ì¹˜ (ê¸°ì¡´ ê°’)
+float moveSpeed = 0.2f; // í•œ ë²ˆì— ì´ë™í•  ê±°ë¦¬
 
-// ------- À°¸éÃ¼ Á¤Á¡ -------------------------------------------
+// ------- ìœ¡ë©´ì²´ ì •ì  -------------------------------------------
 
 GLfloat cubeVertices[8][3] = {
-   {-0.7f, -0.5f, -0.5f},        // {¹Ø¸é ¹Ù´Ú, , }
+   {-0.7f, -0.5f, -0.5f},        // {ë°‘ë©´ ë°”ë‹¥, , }
    {0.7f, -0.5f, -0.5f},
    {0.7f, 0.5f, -0.5f},
    {-0.7f, 0.5f, -0.5f},
@@ -63,25 +67,24 @@ int cubeFacesIndices[6][4] = {
 };
 
 GLfloat cubeFaceColors[6][3] = {
-   {0.0f, 0.0f, 0.0f},        // 0: ¾Õ   (¾È º¸ÀÓ)
-   {0.0f, 0.0f, 0.0f},        // 1: µÚ   (¾È º¸ÀÓ)
+   {0.0f, 0.0f, 0.0f},        // 0: ì•   (ì•ˆ ë³´ì„)
+   {0.0f, 0.0f, 0.0f},        // 1: ë’¤   (ì•ˆ ë³´ì„)
 
-   {0.0f, 0.0f, 1.0f},        // 2: ¾Æ·¡  (¹Ù´Ú)
+   {0.0f, 0.0f, 1.0f},        // 2: ì•„ë˜  (ë°”ë‹¥)
 
-   {0.5f, 0.0f, 1.0f},        // 3: À§   (ÃµÀå)
+   {0.5f, 0.0f, 1.0f},        // 3: ìœ„   (ì²œì¥)
 
-   {0.2f, 0.4f, 1.0f},        // 4: ¿ŞÂÊ º®
-   {0.2f, 0.4f, 1.0f},        // 5: ¿À¸¥ÂÊ º®
+   {0.2f, 0.4f, 1.0f},        // 4: ì™¼ìª½ ë²½
+   {0.2f, 0.4f, 1.0f},        // 5: ì˜¤ë¥¸ìª½ ë²½
 };
 
 
-
-// ------- Çà·Ä °è»ê ------
+// ------- í–‰ë ¬ ê³„ì‚° ------
 struct Mat4 {
     float m[16];
 };
 
-// ´ÜÀ§Çà·Ä
+// ë‹¨ìœ„í–‰ë ¬
 Mat4 identity() {
     Mat4 mat = { {
           1,0,0,0,
@@ -138,9 +141,27 @@ Mat4 perspective(float fov, float aspect, float nearZ, float farZ) {
     return mat;
 }
 
-// ------ Çà·Ä ÇÔ¼ö ---------------------------------
+// ì´ë™ í–‰ë ¬ ìƒì„±
+Mat4 translate(float tx, float ty, float tz) {
+    Mat4 mat = identity();
+    mat.m[12] = tx;
+    mat.m[13] = ty;
+    mat.m[14] = tz;
+    return mat;
+}
 
-// --------------- ÆÄÀÏ ºÒ·¯¿À±â -----------------------------------------
+// í¬ê¸° ì¡°ì ˆ í–‰ë ¬ ìƒì„±
+Mat4 scale(float sx, float sy, float sz) {
+    Mat4 mat = identity();
+    mat.m[0] = sx;
+    mat.m[5] = sy;
+    mat.m[10] = sz;
+    return mat;
+}
+
+// ------ í–‰ë ¬ í•¨ìˆ˜ ---------------------------------
+
+// --------------- íŒŒì¼ ë¶ˆëŸ¬ì˜¤ê¸° -----------------------------------------
 char* filetobuf(const char* file)
 {
     FILE* fptr;
@@ -177,7 +198,7 @@ void make_vertexShaders()
     if (!result)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: vertex shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -197,7 +218,7 @@ void make_fragmentShaders()
     if (!result)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: frag_shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: frag_shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -220,7 +241,7 @@ GLuint createShaderProgram()
     glGetProgramiv(shaderID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderID, 512, NULL, errorLog);
-        std::cerr << "ERROR: shader program ¿¬°á ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: shader program ì—°ê²° ì‹¤íŒ¨\n" << errorLog << std::endl;
         return false;
     }
 
@@ -231,7 +252,7 @@ GLuint createShaderProgram()
 
 
 
-// --------- µµÇü ÃÊ±âÈ­ -----------------------------
+// --------- ë„í˜• ì´ˆê¸°í™” -----------------------------
 
 void setupCubeVAOs()
 {
@@ -242,7 +263,7 @@ void setupCubeVAOs()
             for (int j = 0; j < 3; j++) data[i * 6 + j] = cubeVertices[vi][j];
             for (int j = 0; j < 3; j++) data[i * 6 + 3 + j] = cubeFaceColors[f][j];
 
-            glEnableVertexAttribArray(1); // ¹Ù´Ú ·¹ÀÎ¿ë VAO
+            glEnableVertexAttribArray(1); // ë°”ë‹¥ ë ˆì¸ìš© VAO
 
         }
 
@@ -257,12 +278,12 @@ void setupCubeVAOs()
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        // ---- 2) ¹Ù´Ú 3µîºĞ¿ë ¼¼·Î ¶óÀÎ VAO ----
-        // tunnelSegments = 20, ÇÑ ¼¼±×¸ÕÆ® ±æÀÌ = 1.0f ÀÌ´Ï±î ÀüÃ¼ ±æÀÌ 20.0f
+        // ---- 2) ë°”ë‹¥ 3ë“±ë¶„ìš© ì„¸ë¡œ ë¼ì¸ VAO ----
+        // tunnelSegments = 20, í•œ ì„¸ê·¸ë¨¼íŠ¸ ê¸¸ì´ = 1.0f ì´ë‹ˆê¹Œ ì „ì²´ ê¸¸ì´ 20.0f
         float lineLength = 20.0f;
 
-        // ¹Ù´Ú y´Â -0.5 ÀÌ´Ï±î »ìÂ¦¸¸ À§·Î (-0.49) ¶ç¿ö¼­ z-fighting ¹æÁö
-        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // Èò»ö
+        // ë°”ë‹¥ yëŠ” -0.5 ì´ë‹ˆê¹Œ ì‚´ì§ë§Œ ìœ„ë¡œ (-0.49) ë„ì›Œì„œ z-fighting ë°©ì§€
+        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // í°ìƒ‰
 
         GLfloat lineVertices[] = {
             // x,      y,       z,             r, g, b
@@ -294,76 +315,76 @@ void drawCubeFace(int f) {
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-// --- Ãß°¡ --- ·¹ÀÎ °æ°è¼± ÇÏ³ª ±×¸®±â (ÇöÀç model Çà·Ä ±âÁØ)
+// --- ì¶”ê°€ --- ë ˆì¸ ê²½ê³„ì„  í•˜ë‚˜ ê·¸ë¦¬ê¸° (í˜„ì¬ model í–‰ë ¬ ê¸°ì¤€)
 void drawLaneLine() {
     glBindVertexArray(vaoLaneLine);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
-// -----------------·»´õ¸µ---------------------
+// -----------------ë Œë”ë§---------------------
 
-// -----------------·»´õ¸µ---------------------
+// -----------------ë Œë”ë§---------------------
 
 void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
 
-    // --- Ä«¸Ş¶ó(View)¿Í ¿ø±Ù(Projection) ¼³Á¤ ---
+    // --- ì¹´ë©”ë¼(View)ì™€ ì›ê·¼(Projection) ì„¤ì • ---
 
-    // View Çà·Ä: Ä«¸Ş¶ó¸¦ ¿øÁ¡(0,0,0)¿¡ µÒ (1ÀÎÄª ½ÃÁ¡)
+    // View í–‰ë ¬: ì¹´ë©”ë¼ë¥¼ ì›ì (0,0,0)ì— ë‘  (1ì¸ì¹­ ì‹œì )
     Mat4 view = identity();
 
-    // Projection Çà·Ä: 45µµ ½Ã¾ß°¢À¸·Î ¿ø±Ù°¨ Àû¿ë
+    // Projection í–‰ë ¬: 45ë„ ì‹œì•¼ê°ìœ¼ë¡œ ì›ê·¼ê° ì ìš©
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
 
-    // ¼ÎÀÌ´õ¿¡ View, Projection Çà·Ä Àü¼Û (ÀÌ Çà·ÄµéÀº ÇÑ ¹ø¸¸ Àü¼ÛÇÏ¸é µÊ)
+    // ì…°ì´ë”ì— View, Projection í–‰ë ¬ ì „ì†¡ (ì´ í–‰ë ¬ë“¤ì€ í•œ ë²ˆë§Œ ì „ì†¡í•˜ë©´ ë¨)
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
     glUniformMatrix4fv(locView, 1, GL_FALSE, view.m);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
 
-    // ¼ÎÀÌ´õ¿¡¼­ Model Çà·ÄÀÇ À§Ä¡ °¡Á®¿À±â
+    // ì…°ì´ë”ì—ì„œ Model í–‰ë ¬ì˜ ìœ„ì¹˜ ê°€ì ¸ì˜¤ê¸°
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
 
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
-    int tunnelSegments = 20; // ÅÍ³Î ±æÀÌ (20°³ Á¶°¢)
+    // --- í„°ë„ ê·¸ë¦¬ê¸° (íë¸Œ ë²½ë©´ ë°˜ë³µ) ---
+    int tunnelSegments = 20; // í„°ë„ ê¸¸ì´ (20ê°œ ì¡°ê°)
 
     for (int i = 0; i < tunnelSegments; i++)
     {
-        // 1. Model Çà·Ä °è»ê:
-        //    ¸Å¹ø »õ·Î¿î ´ÜÀ§ Çà·Ä·Î ½ÃÀÛ
+        // 1. Model í–‰ë ¬ ê³„ì‚°:
+        //    ë§¤ë²ˆ ìƒˆë¡œìš´ ë‹¨ìœ„ í–‰ë ¬ë¡œ ì‹œì‘
         Mat4 model = identity();
 
-        //    ZÃàÀ¸·Î Å¥ºê¸¦ Â÷·Ê´ë·Î ¹èÄ¡ (z=0, z=-1, z=-2, ...)
-        //    (i * 1.0f) -> Å¥ºê Å©±â°¡ 1.0ÀÌ¹Ç·Î 1.0 °£°İÀ¸·Î ¹èÄ¡
+        //    Zì¶•ìœ¼ë¡œ íë¸Œë¥¼ ì°¨ë¡€ëŒ€ë¡œ ë°°ì¹˜ (z=0, z=-1, z=-2, ...)
+        //    (i * 1.0f) -> íë¸Œ í¬ê¸°ê°€ 1.0ì´ë¯€ë¡œ 1.0 ê°„ê²©ìœ¼ë¡œ ë°°ì¹˜
         model.m[14] = -(float)i * 1.0f;
 
-        // 2. ¼ÎÀÌ´õ¿¡ ÀÌ Å¥ºê Á¶°¢ÀÇ Model Çà·Ä Àü¼Û
+        // 2. ì…°ì´ë”ì— ì´ íë¸Œ ì¡°ê°ì˜ Model í–‰ë ¬ ì „ì†¡
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
-        // 3. Å¥ºêÀÇ 4°³ º®¸é¸¸ ±×¸®±â (¾Õ/µÚ ¶Ñ²±Àº ±×¸®Áö ¾ÊÀ½)
-        //    (cubeFacesIndices ¹è¿­ ¼ø¼­¿¡ µû¸§)
-        drawCubeFace(2); // ¾Æ·§¸é (0,1,5,4)
-        drawCubeFace(3); // À­¸é (3,2,6,7)
-        drawCubeFace(4); // ¿ŞÂÊ ¸é (0,3,7,4)
-        drawCubeFace(5); // ¿À¸¥ÂÊ ¸é (1,2,6,5)
+        // 3. íë¸Œì˜ 4ê°œ ë²½ë©´ë§Œ ê·¸ë¦¬ê¸° (ì•/ë’¤ ëšœê»‘ì€ ê·¸ë¦¬ì§€ ì•ŠìŒ)
+        //    (cubeFacesIndices ë°°ì—´ ìˆœì„œì— ë”°ë¦„)
+        drawCubeFace(2); // ì•„ë«ë©´ (0,1,5,4)
+        drawCubeFace(3); // ìœ—ë©´ (3,2,6,7)
+        drawCubeFace(4); // ì™¼ìª½ ë©´ (0,3,7,4)
+        drawCubeFace(5); // ì˜¤ë¥¸ìª½ ë©´ (1,2,6,5)
 
        
     }
 
-    // --- Ãß°¡ --- 3·¹ÀÎ ½ºÆ®¸³ ±×¸®±â ---
-       // ¹Ù´ÚÀ» 3µîºĞÇÏ´Â ¼¼·Î ¶óÀÎ 2°³ ±×¸®±â
+    // --- ì¶”ê°€ --- 3ë ˆì¸ ìŠ¤íŠ¸ë¦½ ê·¸ë¦¬ê¸° ---
+       // ë°”ë‹¥ì„ 3ë“±ë¶„í•˜ëŠ” ì„¸ë¡œ ë¼ì¸ 2ê°œ ê·¸ë¦¬ê¸°
     {
-        // ±âÁØ model: ´ÜÀ§Çà·Ä (¶óÀÎ ÀÚÃ¼°¡ ÀÌ¹Ì z·Î ±æ°Ô ¸¸µé¾îÁ® ÀÖÀ½)
+        // ê¸°ì¤€ model: ë‹¨ìœ„í–‰ë ¬ (ë¼ì¸ ìì²´ê°€ ì´ë¯¸ zë¡œ ê¸¸ê²Œ ë§Œë“¤ì–´ì ¸ ìˆìŒ)
         Mat4 model = identity();
 
-        // 1) ¿ŞÂÊ °æ°è¼±
+        // 1) ì™¼ìª½ ê²½ê³„ì„ 
         Mat4 leftLine = model;
-        leftLine.m[12] = -0.25f;          // x ÀÌµ¿ => °ªÀÌ ÀÛÀ»¼ö·Ï °¡¿îµ¥ Á¼¾ÆÁü
+        leftLine.m[12] = -0.25f;          // x ì´ë™ => ê°’ì´ ì‘ì„ìˆ˜ë¡ ê°€ìš´ë° ì¢ì•„ì§
         glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
         drawLaneLine();
 
-        // 2) ¿À¸¥ÂÊ °æ°è¼±
+        // 2) ì˜¤ë¥¸ìª½ ê²½ê³„ì„ 
         Mat4 rightLine = model;
         rightLine.m[12] = 0.25f;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
@@ -380,14 +401,14 @@ int main(int argc, char** argv)
 
     srand((unsigned)time(NULL));
 
-    //--- À©µµ¿ì »ı¼ºÇÏ±â
+    //--- ìœˆë„ìš° ìƒì„±í•˜ê¸°
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ±íÀÌ ¹öÆÛ Ãß°¡
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ê¹Šì´ ë²„í¼ ì¶”ê°€
     glutInitWindowPosition(0, 0);
     glutInitWindowSize(800, 800);
     glutCreateWindow("2025 Coding Test-Computer Graphics");
 
-    //--- GLEW ÃÊ±âÈ­ÇÏ±â
+    //--- GLEW ì´ˆê¸°í™”í•˜ê¸°
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
     {
@@ -398,17 +419,17 @@ int main(int argc, char** argv)
         std::cout << "GLEW Initialized\n";
 
 
-    //--- ¼¼ÀÌ´õ ÀĞ¾î¿Í¼­ ¼¼ÀÌ´õ ÇÁ·Î±×·¥ ¸¸µé±â ---
+    //--- ì„¸ì´ë” ì½ì–´ì™€ì„œ ì„¸ì´ë” í”„ë¡œê·¸ë¨ ë§Œë“¤ê¸° ---
     make_vertexShaders();
     make_fragmentShaders();
 
-    // ------ Ãß°¡ ----------
+    // ------ ì¶”ê°€ ----------
     glewInit();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
-    setupCubeVAOs(); // Å¥ºê ±×¸²
+    setupCubeVAOs(); // íë¸Œ ê·¸ë¦¼
 
 
 
@@ -419,7 +440,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
+GLvoid drawScene()             //--- ì½œë°± í•¨ìˆ˜: ì¶œë ¥ ì½œë°± í•¨ìˆ˜
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -433,7 +454,7 @@ GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
 
 }
 
-GLvoid Reshape(int w, int h)         //--- Äİ¹é ÇÔ¼ö: ´Ù½Ã ±×¸®±â Äİ¹é ÇÔ¼ö
+GLvoid Reshape(int w, int h)         //--- ì½œë°± í•¨ìˆ˜: ë‹¤ì‹œ ê·¸ë¦¬ê¸° ì½œë°± í•¨ìˆ˜
 {
     glViewport(0, 0, w, h);
     aspect = (float)w / (float)h;
