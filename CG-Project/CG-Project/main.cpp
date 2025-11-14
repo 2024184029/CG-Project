@@ -1,6 +1,6 @@
-//*** Çì´õÆÄÀÏ°ú ¶óÀÌºê·¯¸® Æ÷ÇÔ½ÃÅ°±â
-// Çì´õÆÄÀÏ µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ Æ÷ÇÔ µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ include µğ·ºÅä¸® Ãß°¡ÇÏ±â
-// ¶óÀÌºê·¯¸® µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ ¶óÀÌºê·¯¸® µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ lib µğ·ºÅä¸® Ãß°¡ÇÏ±â
+ï»¿//*** í—¤ë”íŒŒì¼ê³¼ ë¼ì´ë¸ŒëŸ¬ë¦¬ í¬í•¨ì‹œí‚¤ê¸°
+// í—¤ë”íŒŒì¼ ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°: í”„ë¡œì íŠ¸ ë©”ë‰´ -> ë§¨ ì•„ë˜ì— ìˆëŠ” í”„ë¡œì íŠ¸ ì†ì„± -> VC++ ë””ë ‰í† ë¦¬ -> ì¼ë°˜ì˜ í¬í•¨ ë””ë ‰í† ë¦¬ -> í¸ì§‘ìœ¼ë¡œ ê°€ì„œ í˜„ì¬ ë””ë ‰í† ë¦¬ì˜ include ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°
+// ë¼ì´ë¸ŒëŸ¬ë¦¬ ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°: í”„ë¡œì íŠ¸ ë©”ë‰´ -> ë§¨ ì•„ë˜ì— ìˆëŠ” í”„ë¡œì íŠ¸ ì†ì„± -> VC++ ë””ë ‰í† ë¦¬ -> ì¼ë°˜ì˜ ë¼ì´ë¸ŒëŸ¬ë¦¬ ë””ë ‰í† ë¦¬ -> í¸ì§‘ìœ¼ë¡œ ê°€ì„œ í˜„ì¬ ë””ë ‰í† ë¦¬ì˜ lib ë””ë ‰í† ë¦¬ ì¶”ê°€í•˜ê¸°
 
 
 #define _CRT_SECURE_NO_WARNINGS 
@@ -31,12 +31,16 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-// ------------ Àü¿ªº¯¼ö -------------
+// ------------ ì „ì—­ë³€ìˆ˜ -------------
 GLuint vaoCube[6];
 
-float aspect = 1.0f; // Á¾È¾ºñ
+float aspect = 1.0f; // ì¢…íš¡ë¹„
+// +++ í”Œë ˆì´ì–´ ìœ„ì¹˜ ë³€ìˆ˜ ì¶”ê°€ +++
+float playerX = 0.0f;
+float playerZ = -5.0f; // ì´ˆê¸° Z ìœ„ì¹˜ (ê¸°ì¡´ ê°’)
+float moveSpeed = 0.2f; // í•œ ë²ˆì— ì´ë™í•  ê±°ë¦¬
 
-// ------- À°¸éÃ¼ Á¤Á¡ -------------------------------------------
+// ------- ìœ¡ë©´ì²´ ì •ì  -------------------------------------------
 
 GLfloat cubeVertices[8][3] = {
    {-0.5f, -0.5f, -0.5f},
@@ -68,12 +72,12 @@ GLfloat cubeFaceColors[6][3] = {
 };
 
 
-// ------- Çà·Ä °è»ê ------
+// ------- í–‰ë ¬ ê³„ì‚° ------
 struct Mat4 {
     float m[16];
 };
 
-// ´ÜÀ§Çà·Ä
+// ë‹¨ìœ„í–‰ë ¬
 Mat4 identity() {
     Mat4 mat = { {
           1,0,0,0,
@@ -130,9 +134,27 @@ Mat4 perspective(float fov, float aspect, float nearZ, float farZ) {
     return mat;
 }
 
-// ------ Çà·Ä ÇÔ¼ö ---------------------------------
+// ì´ë™ í–‰ë ¬ ìƒì„±
+Mat4 translate(float tx, float ty, float tz) {
+    Mat4 mat = identity();
+    mat.m[12] = tx;
+    mat.m[13] = ty;
+    mat.m[14] = tz;
+    return mat;
+}
 
-// --------------- ÆÄÀÏ ºÒ·¯¿À±â -----------------------------------------
+// í¬ê¸° ì¡°ì ˆ í–‰ë ¬ ìƒì„±
+Mat4 scale(float sx, float sy, float sz) {
+    Mat4 mat = identity();
+    mat.m[0] = sx;
+    mat.m[5] = sy;
+    mat.m[10] = sz;
+    return mat;
+}
+
+// ------ í–‰ë ¬ í•¨ìˆ˜ ---------------------------------
+
+// --------------- íŒŒì¼ ë¶ˆëŸ¬ì˜¤ê¸° -----------------------------------------
 char* filetobuf(const char* file)
 {
     FILE* fptr;
@@ -169,7 +191,7 @@ void make_vertexShaders()
     if (!result)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: vertex shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -189,7 +211,7 @@ void make_fragmentShaders()
     if (!result)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: frag_shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: frag_shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -212,7 +234,7 @@ GLuint createShaderProgram()
     glGetProgramiv(shaderID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderID, 512, NULL, errorLog);
-        std::cerr << "ERROR: shader program ¿¬°á ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: shader program ì—°ê²° ì‹¤íŒ¨\n" << errorLog << std::endl;
         return false;
     }
 
@@ -223,7 +245,7 @@ GLuint createShaderProgram()
 
 
 
-// --------- µµÇü ÃÊ±âÈ­ -----------------------------
+// --------- ë„í˜• ì´ˆê¸°í™” -----------------------------
 
 void setupCubeVAOs()
 {
@@ -254,74 +276,128 @@ void drawCubeFace(int f) {
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-// -----------------·»´õ¸µ---------------------
 
-// -----------------·»´õ¸µ---------------------
+// +++ í‚¤ë³´ë“œ ì½œë°± í•¨ìˆ˜ ì¶”ê°€ +++
+void specialKeyboard(int key, int x, int y)
+{
+    switch (key)
+    {
+    case GLUT_KEY_UP: // 'UP' í™”ì‚´í‘œ í‚¤
+        playerZ -= moveSpeed; // Zì¶• ìŒì˜ ë°©í–¥(ì•ìœ¼ë¡œ)ìœ¼ë¡œ ì´ë™
+        break;
+    case GLUT_KEY_DOWN: // 'DOWN' í™”ì‚´í‘œ í‚¤
+        playerZ += moveSpeed; // Zì¶• ì–‘ì˜ ë°©í–¥(ë’¤ë¡œ)ìœ¼ë¡œ ì´ë™
+        break;
+    case GLUT_KEY_LEFT: // 'LEFT' í™”ì‚´í‘œ í‚¤
+        playerX -= moveSpeed; // Xì¶• ìŒì˜ ë°©í–¥(ì™¼ìª½)ìœ¼ë¡œ ì´ë™
+        break;
+    case GLUT_KEY_RIGHT: // 'RIGHT' í™”ì‚´í‘œ í‚¤
+        playerX += moveSpeed; // Xì¶• ì–‘ì˜ ë°©í–¥(ì˜¤ë¥¸ìª½)ìœ¼ë¡œ ì´ë™
+        break;
+    }
+
+    // í™”ë©´ì„ ê°±ì‹ í•˜ë„ë¡ ìš”ì²­
+    glutPostRedisplay();
+}
+
+
+// -----------------ë Œë”ë§---------------------
+// ... (Display í•¨ìˆ˜) ...
+
+// -----------------ë Œë”ë§---------------------
 
 void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
 
-    // --- Ä«¸Ş¶ó(View)¿Í ¿ø±Ù(Projection) ¼³Á¤ ---
-
-    // View Çà·Ä: Ä«¸Ş¶ó¸¦ ¿øÁ¡(0,0,0)¿¡ µÒ (1ÀÎÄª ½ÃÁ¡)
+    // --- ì¹´ë©”ë¼(View)ì™€ ì›ê·¼(Projection) ì„¤ì • ---
     Mat4 view = identity();
-
-    // Projection Çà·Ä: 45µµ ½Ã¾ß°¢À¸·Î ¿ø±Ù°¨ Àû¿ë
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
-
-    // ¼ÎÀÌ´õ¿¡ View, Projection Çà·Ä Àü¼Û (ÀÌ Çà·ÄµéÀº ÇÑ ¹ø¸¸ Àü¼ÛÇÏ¸é µÊ)
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
     glUniformMatrix4fv(locView, 1, GL_FALSE, view.m);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
-
-    // ¼ÎÀÌ´õ¿¡¼­ Model Çà·ÄÀÇ À§Ä¡ °¡Á®¿À±â
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
 
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
-    int tunnelSegments = 20; // ÅÍ³Î ±æÀÌ (20°³ Á¶°¢)
+    // --- í„°ë„ ê·¸ë¦¬ê¸° (íë¸Œ ë²½ë©´ ë°˜ë³µ) ---
+    int tunnelSegments = 300; // í„°ë„ ê¸¸ì´
+    float tunnelScaleXY = 2.0f; // í„°ë„ ë„ˆë¹„/ë†’ì´ ë°°ìœ¨ (2ë°°)
 
     for (int i = 0; i < tunnelSegments; i++)
     {
-        // 1. Model Çà·Ä °è»ê:
-        //    ¸Å¹ø »õ·Î¿î ´ÜÀ§ Çà·Ä·Î ½ÃÀÛ
-        Mat4 model = identity();
+        // 1. Model í–‰ë ¬ ê³„ì‚°:
 
-        //    ZÃàÀ¸·Î Å¥ºê¸¦ Â÷·Ê´ë·Î ¹èÄ¡ (z=0, z=-1, z=-2, ...)
-        //    (i * 1.0f) -> Å¥ºê Å©±â°¡ 1.0ÀÌ¹Ç·Î 1.0 °£°İÀ¸·Î ¹èÄ¡
-        model.m[14] = -(float)i * 1.0f;
+        // í„°ë„ í¬ê¸° ì¡°ì ˆ (X: 2ë°°, Y: 2ë°°, Z: 1ë°°)
+        // Zì¶• í¬ê¸°ëŠ” 1.0ìœ¼ë¡œ ìœ ì§€í•´ì•¼ í„°ë„ ì¡°ê°ë“¤ì´ ì„œë¡œ ë¶™ìŠµë‹ˆë‹¤.
+        Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
+        // Zì¶•ìœ¼ë¡œ í„°ë„ ì¡°ê° ë°°ì¹˜
+        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
 
-        // 2. ¼ÎÀÌ´õ¿¡ ÀÌ Å¥ºê Á¶°¢ÀÇ Model Çà·Ä Àü¼Û
+        // í¬ê¸° ì¡°ì ˆ í›„ ì´ë™
+        Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
+
+        // 2. ì…°ì´ë”ì— ì´ íë¸Œ ì¡°ê°ì˜ Model í–‰ë ¬ ì „ì†¡
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
-        // 3. Å¥ºêÀÇ 4°³ º®¸é¸¸ ±×¸®±â (¾Õ/µÚ ¶Ñ²±Àº ±×¸®Áö ¾ÊÀ½)
-        //    (cubeFacesIndices ¹è¿­ ¼ø¼­¿¡ µû¸§)
-        drawCubeFace(2); // ¾Æ·§¸é (0,1,5,4)
-        drawCubeFace(3); // À­¸é (3,2,6,7)
-        drawCubeFace(4); // ¿ŞÂÊ ¸é (0,3,7,4)
-        drawCubeFace(5); // ¿À¸¥ÂÊ ¸é (1,2,6,5)
+        // 3. íë¸Œì˜ 4ê°œ ë²½ë©´ë§Œ ê·¸ë¦¬ê¸°
+        drawCubeFace(2); // ì•„ë«ë©´
+        drawCubeFace(3); // ìœ—ë©´
+        drawCubeFace(4); // ì™¼ìª½ ë©´
+        drawCubeFace(5); // ì˜¤ë¥¸ìª½ ë©´
+    }
+
+    // +++ í”Œë ˆì´ì–´ íë¸Œ ê·¸ë¦¬ê¸° +++
+
+    // 1. Model í–‰ë ¬ ê³„ì‚°:
+
+    // í”Œë ˆì´ì–´ íë¸Œ í¬ê¸° (0.2ë°°)
+    float playerScale = 0.5f; // í”Œë ˆì´ì–´ í¬ê¸°ë¥¼ ë³€ìˆ˜ë¡œ ì €ì¥
+    Mat4 modelPlayerScale = scale(playerScale, playerScale, playerScale);
+
+    // í”Œë ˆì´ì–´ ìœ„ì¹˜ ê³„ì‚°:
+    // 1. í„°ë„ ë°”ë‹¥ Y ìœ„ì¹˜:
+    //    ê¸°ë³¸ íë¸Œ ë°”ë‹¥: -0.5f
+    //    í„°ë„ Y ìŠ¤ì¼€ì¼: tunnelScaleXY (2.0f)
+    //    -> ì‹¤ì œ í„°ë„ ë°”ë‹¥ Y = -0.5f * 2.0f = -1.0f
+    // 2. í”Œë ˆì´ì–´ Y ìœ„ì¹˜:
+    //    í”Œë ˆì´ì–´ í¬ê¸°: 0.2f -> í”Œë ˆì´ì–´ ì ˆë°˜ í¬ê¸°: 0.1f
+    //    -> í”Œë ˆì´ì–´ ì¤‘ì‹¬ Y = ì‹¤ì œ í„°ë„ ë°”ë‹¥ + í”Œë ˆì´ì–´ ì ˆë°˜ í¬ê¸°
+    //    -> -1.0f + 0.1f = -0.9f
+    float playerY = (-0.5f * tunnelScaleXY) + (playerScale / 2.0f);
+
+    // 3. í”Œë ˆì´ì–´ Z ìœ„ì¹˜:
+    //    *** ì „ì—­ ë³€ìˆ˜ ì‚¬ìš©í•˜ë„ë¡ ìˆ˜ì • ***
+    Mat4 modelPlayerTranslate = translate(playerX, playerY, playerZ);
+
+    // ìµœì¢… Model í–‰ë ¬ ê³„ì‚° (ìŠ¤ì¼€ì¼ ì ìš© í›„ ì´ë™)
+    Mat4 modelPlayer = multifly(modelPlayerTranslate, modelPlayerScale);
+
+    // 2. ì…°ì´ë”ì— í”Œë ˆì´ì–´ íë¸Œì˜ Model í–‰ë ¬ ì „ì†¡
+    glUniformMatrix4fv(locModel, 1, GL_FALSE, modelPlayer.m);
+
+    // 3. íë¸Œì˜ 6ê°œ ë©´ ëª¨ë‘ ê·¸ë¦¬ê¸°
+    for (int f = 0; f < 6; f++) {
+        drawCubeFace(f);
     }
 
 
     glutSwapBuffers();
 }
 
-
 int main(int argc, char** argv)
 {
 
     srand((unsigned)time(NULL));
 
-    //--- À©µµ¿ì »ı¼ºÇÏ±â
+    //--- ìœˆë„ìš° ìƒì„±í•˜ê¸°
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ±íÀÌ ¹öÆÛ Ãß°¡
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ê¹Šì´ ë²„í¼ ì¶”ê°€
     glutInitWindowPosition(0, 0);
     glutInitWindowSize(1280, 960);
     glutCreateWindow("2025 Coding Test-Computer Graphics");
 
-    //--- GLEW ÃÊ±âÈ­ÇÏ±â
+    //--- GLEW ì´ˆê¸°í™”í•˜ê¸°
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
     {
@@ -332,31 +408,33 @@ int main(int argc, char** argv)
         std::cout << "GLEW Initialized\n";
 
 
-    //--- ¼¼ÀÌ´õ ÀĞ¾î¿Í¼­ ¼¼ÀÌ´õ ÇÁ·Î±×·¥ ¸¸µé±â ---
+    //--- ì„¸ì´ë” ì½ì–´ì™€ì„œ ì„¸ì´ë” í”„ë¡œê·¸ë¨ ë§Œë“¤ê¸° ---
     make_vertexShaders();
     make_fragmentShaders();
 
-    // ------ Ãß°¡ ----------
+    // ------ ì¶”ê°€ ----------
     glewInit();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
-    setupCubeVAOs(); // Å¥ºê ±×¸²
+    setupCubeVAOs(); // íë¸Œ ê·¸ë¦¼
 
- 
+
 
     glutDisplayFunc(Display);
     glutReshapeFunc(Reshape);
+
+    glutSpecialFunc(specialKeyboard);
     glutMainLoop();
 
     return 0;
 }
 
-GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
+GLvoid drawScene()             //--- ì½œë°± í•¨ìˆ˜: ì¶œë ¥ ì½œë°± í•¨ìˆ˜
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | 0x00000100);
 
     glUseProgram(shaderProgramID);
 
@@ -367,7 +445,7 @@ GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
 
 }
 
-GLvoid Reshape(int w, int h)         //--- Äİ¹é ÇÔ¼ö: ´Ù½Ã ±×¸®±â Äİ¹é ÇÔ¼ö
+GLvoid Reshape(int w, int h)         //--- ì½œë°± í•¨ìˆ˜: ë‹¤ì‹œ ê·¸ë¦¬ê¸° ì½œë°± í•¨ìˆ˜
 {
     glViewport(0, 0, w, h);
     aspect = (float)w / (float)h;
