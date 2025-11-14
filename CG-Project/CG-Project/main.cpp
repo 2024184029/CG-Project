@@ -36,6 +36,7 @@ GLuint fragmentShader;
 
 // ------------ 전역변수 -------------
 GLuint vaoCube[6];
+GLuint vaoLaneLine;   // 바닥 레인 만들기 위한 VAO
 
 float aspect = 1.0f; // 종횡비
 
@@ -241,6 +242,8 @@ void setupCubeVAOs()
             for (int j = 0; j < 3; j++) data[i * 6 + j] = cubeVertices[vi][j];
             for (int j = 0; j < 3; j++) data[i * 6 + 3 + j] = cubeFaceColors[f][j];
 
+            glEnableVertexAttribArray(1); // 바닥 레인용 VAO
+
         }
 
         GLuint vbo;
@@ -253,6 +256,36 @@ void setupCubeVAOs()
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
+
+        // ---- 2) 바닥 3등분용 세로 라인 VAO ----
+        // tunnelSegments = 20, 한 세그먼트 길이 = 1.0f 이니까 전체 길이 20.0f
+        float lineLength = 20.0f;
+
+        // 바닥 y는 -0.5 이니까 살짝만 위로 (-0.49) 띄워서 z-fighting 방지
+        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // 흰색
+
+        GLfloat lineVertices[] = {
+            // x,      y,       z,             r, g, b
+            -0.01f, -0.49f,  0.0f,            lineColor[0], lineColor[1], lineColor[2],
+             0.01f, -0.49f,  0.0f,            lineColor[0], lineColor[1], lineColor[2],
+            -0.01f, -0.49f, -lineLength,      lineColor[0], lineColor[1], lineColor[2],
+             0.01f, -0.49f, -lineLength,      lineColor[0], lineColor[1], lineColor[2],
+        };
+
+        GLuint vboLaneLine;
+        glGenVertexArrays(1, &vaoLaneLine);
+        glGenBuffers(1, &vboLaneLine);
+
+        glBindVertexArray(vaoLaneLine);
+        glBindBuffer(GL_ARRAY_BUFFER, vboLaneLine);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(lineVertices), lineVertices, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        glBindVertexArray(0);
     }
 }
 
@@ -261,6 +294,11 @@ void drawCubeFace(int f) {
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
+// --- 추가 --- 레인 경계선 하나 그리기 (현재 model 행렬 기준)
+void drawLaneLine() {
+    glBindVertexArray(vaoLaneLine);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
 // -----------------렌더링---------------------
 
 // -----------------렌더링---------------------
@@ -309,6 +347,27 @@ void Display() {
         drawCubeFace(3); // 윗면 (3,2,6,7)
         drawCubeFace(4); // 왼쪽 면 (0,3,7,4)
         drawCubeFace(5); // 오른쪽 면 (1,2,6,5)
+
+       
+    }
+
+    // --- 추가 --- 3레인 스트립 그리기 ---
+       // 바닥을 3등분하는 세로 라인 2개 그리기
+    {
+        // 기준 model: 단위행렬 (라인 자체가 이미 z로 길게 만들어져 있음)
+        Mat4 model = identity();
+
+        // 1) 왼쪽 경계선
+        Mat4 leftLine = model;
+        leftLine.m[12] = -0.25f;          // x 이동 => 값이 작을수록 가운데 좁아짐
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
+        drawLaneLine();
+
+        // 2) 오른쪽 경계선
+        Mat4 rightLine = model;
+        rightLine.m[12] = 0.25f;
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
+        drawLaneLine();
     }
 
 
@@ -325,7 +384,7 @@ int main(int argc, char** argv)
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // 깊이 버퍼 추가
     glutInitWindowPosition(0, 0);
-    glutInitWindowSize(1280, 960);
+    glutInitWindowSize(800, 800);
     glutCreateWindow("2025 Coding Test-Computer Graphics");
 
     //--- GLEW 초기화하기
