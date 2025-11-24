@@ -1,9 +1,4 @@
-//*** Çì´õÆÄÀÏ°ú ¶óÀÌºê·¯¸® Æ÷ÇÔ½ÃÅ°±â
-// Çì´õÆÄÀÏ µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ Æ÷ÇÔ µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ include µğ·ºÅä¸® Ãß°¡ÇÏ±â
-// ¶óÀÌºê·¯¸® µğ·ºÅä¸® Ãß°¡ÇÏ±â: ÇÁ·ÎÁ§Æ® ¸Ş´º -> ¸Ç ¾Æ·¡¿¡ ÀÖ´Â ÇÁ·ÎÁ§Æ® ¼Ó¼º -> VC++ µğ·ºÅä¸® -> ÀÏ¹İÀÇ ¶óÀÌºê·¯¸® µğ·ºÅä¸® -> ÆíÁıÀ¸·Î °¡¼­ ÇöÀç µğ·ºÅä¸®ÀÇ lib µğ·ºÅä¸® Ãß°¡ÇÏ±â
-
-
-#define _CRT_SECURE_NO_WARNINGS 
+ï»¿#define _CRT_SECURE_NO_WARNINGS 
 
 #include <iostream>
 #include <stdlib.h>
@@ -34,23 +29,87 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-// ------------ Àü¿ªº¯¼ö -------------
+// ------------ ì „ì—­ë³€ìˆ˜ -------------
 GLuint vaoCube[6];
-GLuint vaoLaneLine;   // ¹Ù´Ú ·¹ÀÎ ¸¸µé±â À§ÇÑ VAO
+GLuint vaoLaneLine;   // ë°”ë‹¥ ë ˆì¸ ë§Œë“¤ê¸° ìœ„í•œ VAO
 
-float aspect = 1.0f; // Á¾È¾ºñ
+float aspect = 1.0f; // ì¢…íš¡ë¹„
 
-// +++ ÇÃ·¹ÀÌ¾î À§Ä¡ º¯¼ö Ãß°¡ +++
+// +++ í”Œë ˆì´ì–´ ìœ„ì¹˜ ë³€ìˆ˜ ì¶”ê°€ +++
 float playerX = 0.0f;
-float playerZ = -5.0f; // ÃÊ±â Z À§Ä¡ (±âÁ¸ °ª)
-float moveSpeed = 0.2f; // ÇÑ ¹ø¿¡ ÀÌµ¿ÇÒ °Å¸®
-// ¡Ú ÅÍ³Î z¹æÇâ ÀÌµ¿·® (Æ®·¹µå¹Ğ ¿ÀÇÁ¼Â)
+float playerZ = -3.0f; // ì´ˆê¸° Z ìœ„ì¹˜ (ê¸°ì¡´ ê°’)
+
+float moveSpeed = 0.2f; // í•œ ë²ˆì— ì´ë™í•  ê±°ë¦¬
+//í„°ë„ zë°©í–¥ ì´ë™ëŸ‰ (íŠ¸ë ˆë“œë°€ ì˜¤í”„ì…‹)
 float tunnelOffsetZ = 0.0f;
 
-// ------- À°¸éÃ¼ Á¤Á¡ -------------------------------------------
+//ìë™ ì´ë™ë˜ëŠ” ë³€ìˆ˜ ì¶”ê°€
+bool isAutoMove = false;
+float autoMoveSpeedPerFrame = 0.08f;
+//------------------------------------------------------------
+
+float playerScale = 0.3f;  // í”Œë ˆì´ì–´ íë¸Œ í¬ê¸° (ê¸°ì¡´ê°’)
+float obstacleSize = 0.25f; // ì¥ì• ë¬¼ íë¸Œ í¬ê¸°   (spawnRandomObstacleì—ì„œ ì„¤ì •)
+
+// ================== â˜…â˜…â˜… ì¥ì• ë¬¼ ê´€ë ¨ ì „ì—­ ë³€ìˆ˜ ì¶”ê°€ â˜…â˜…â˜… ==================
+struct Obstacle {
+    float x;       // ë ˆì¸ ìœ„ì¹˜ (ì™¼/ê°€ìš´ë°/ì˜¤ë¥¸ìª½)
+    float z;       // í„°ë„ ê¸°ì¤€ z íŒŒë¼ë¯¸í„° (tunnelOffsetZì™€ í•¨ê»˜ ì‚¬ìš©)
+    float size;    // ì¥ì• ë¬¼ í¬ê¸°
+    bool  active;  // í™œì„±í™” ì—¬ë¶€
+	int lane;    // ì¥ì• ë¬¼ ì–´ëŠ ë ˆì¸ì¸ì§€ (0: ì™¼ìª½, 1: ê°€ìš´ë°, 2: ì˜¤ë¥¸ìª½)
+};
+
+const int MAX_OBSTACLES = 50;
+Obstacle obstacles[MAX_OBSTACLES];
+
+const float OBSTACLE_Z_STRETCH = 3.f;  // ì¥ì• ë¬¼ì„ zì¶•ìœ¼ë¡œ ëŠ˜ë ¤ì„œ ê¸¸ì­‰í•˜ê²Œ ë³´ì´ê²Œ í•˜ëŠ” ìš©ë„
+
+// â˜…â˜…â˜… ë ˆì¸ ìœ„ì¹˜ & ê°„ê²© ìƒìˆ˜ â˜…â˜…â˜…
+//ì¢Œìš° ë¶€ë“œëŸ¬ìš´ ì´ë™ì„ ìœ„í•œ ë³€ìˆ˜
+bool isLeftDown = false;  // ì™¼ìª½ í‚¤ê°€ ëˆŒë ¤ìˆëŠ”ê°€?
+bool isRightDown = false; // ì˜¤ë¥¸ìª½ í‚¤ê°€ ëˆŒë ¤ìˆëŠ”ê°€?
+float playerMoveSpeed = 0.05f; // ì¢Œìš° ì´ë™ ì†ë„ (ì´ ê°’ì„ í‚¤ìš°ë©´ ë” ë¹ ë¥´ê²Œ ì›€ì§ì„)
+const float PLAYER_LIMIT = 1.8f;
+
+int currentLane = 0;        // í˜„ì¬ ë ˆì¸ ë²ˆí˜¸ (-1: ì™¼ìª½, 0: ê°€ìš´ë°, 1: ì˜¤ë¥¸ìª½)
+float targetPlayerX = 0.0f; // í”Œë ˆì´ì–´ê°€ ì´ë™í•´ì•¼ í•  ëª©í‘œ X ì¢Œí‘œ
+const float LANE_WIDTH = 0.6f; // ë ˆì¸ ê°„ê²©
+float laneSwitchSpeed = 0.04f;
+//const float OBSTACLE_SHIFT = 0.5f;   // í”Œë ˆì´ì–´ ë ˆì¸ì—ì„œ ì–¼ë§ˆë‚˜ ë” ë°”ê¹¥/ì•ˆìª½ìœ¼ë¡œ ë°€ì§€
+
+// ë ˆì¸ ì¤‘ì‹¬ (í”Œë ˆì´ì–´ + ì¥ì• ë¬¼ ë‘˜ ë‹¤ ê³µí†µìœ¼ë¡œ ì‚¬ìš©) 
+const float LANE_POSITIONS[3] = { -LANE_WIDTH, 0.0f, LANE_WIDTH};
+// ì¥ì• ë¬¼ ë ˆì¸ ìœ„ì¹˜ë„ í”Œë ˆì´ì–´ì™€ ë™ì¼í•œ ë ˆì¸ ì¤‘ì‹¬ ì‚¬ìš©
+// ì¥ì• ë¬¼ë„ ë ˆì¸ ì¤‘ì‹¬ ê·¸ëŒ€ë¡œ ì‚¬ìš©
+const float OBSTACLE_LANE_POS[3] = {
+    LANE_POSITIONS[0] - 0.5,
+    LANE_POSITIONS[1],
+    LANE_POSITIONS[2]+ 0.5
+};
+// ìˆ«ì í‚¤ìš°ë©´ ë” ë„“ê²Œ, ì¤„ì´ë©´ ë” ì´˜ì´˜í•˜ê²Œ
+const float OBSTACLE_Z_GAP = 10.0f;   // 10 ì •ë„ë©´ ì í”„+ì¢Œìš° ì´ë™ ì¶©ë¶„íˆ ì—¬ìœ 
+const float OBSTACLE_SPAWN_Z = -40.0f;  // ìƒì„±ë  ë•Œ í™”ë©´ ë©€~ë¦¬ ì•ìª½ì—ì„œ ë“±ì¥
+
+// ì–¼ë§ˆë‚˜ ì „ì§„í–ˆì„ ë•Œ ìƒˆ ì¥ì• ë¬¼ì„ í•˜ë‚˜ ë” ë§Œë“¤ì§€ ì²´í¬ìš©
+float lastSpawnOffsetZ = 0.0f;
+
+// [ë¡œë´‡ ì• ë‹ˆë©”ì´ì…˜ìš© ì „ì—­ ë³€ìˆ˜ ì¶”ê°€]
+float limbAngle = 0.0f;   // íŒ”ë‹¤ë¦¬ ê°ë„
+float limbDir = 1.0f;     // íŒ”ë‹¤ë¦¬ ì›€ì§ì„ ë°©í–¥
+
+//ì í”„ ê´€ë ¨ ë³€ìˆ˜
+bool isJumping = false;
+float jumpY = 0.0f;
+float jumpVelocity = 0.0f;
+const float GRAVITY = 8.f;
+const float JUMP_POWER = 4.f;
+
+
+// ------- ìœ¡ë©´ì²´ ì •ì  -------------------------------------------
 
 GLfloat cubeVertices[8][3] = {
-   {-0.7f, -0.5f, -0.5f},        // {¹Ø¸é ¹Ù´Ú, , }
+   {-0.7f, -0.5f, -0.5f},        // {ë°‘ë©´ ë°”ë‹¥, , }
    {0.7f, -0.5f, -0.5f},
    {0.7f, 0.5f, -0.5f},
    {-0.7f, 0.5f, -0.5f},
@@ -70,25 +129,25 @@ int cubeFacesIndices[6][4] = {
 };
 
 GLfloat cubeFaceColors[6][3] = {
-   {0.0f, 0.0f, 0.0f},        // 0: ¾Õ   (¾È º¸ÀÓ)
-   {0.0f, 0.0f, 0.0f},        // 1: µÚ   (¾È º¸ÀÓ)
+   {0.0f, 0.0f, 0.0f},        // 0: ì•   (ì•ˆ ë³´ì„)
+   {0.0f, 0.0f, 0.0f},        // 1: ë’¤   (ì•ˆ ë³´ì„)
 
-   {0.0f, 0.0f, 1.0f},        // 2: ¾Æ·¡  (¹Ù´Ú)
+   {0.0f, 0.0f, 1.0f},        // 2: ì•„ë˜  (ë°”ë‹¥)
 
-   {0.5f, 0.0f, 1.0f},        // 3: À§   (ÃµÀå)
+   {0.5f, 0.0f, 1.0f},        // 3: ìœ„   (ì²œì¥)
 
-   {0.2f, 0.4f, 1.0f},        // 4: ¿ŞÂÊ º®
-   {0.2f, 0.4f, 1.0f},        // 5: ¿À¸¥ÂÊ º®
+   {0.2f, 0.4f, 1.0f},        // 4: ì™¼ìª½ ë²½
+   {0.2f, 0.4f, 1.0f},        // 5: ì˜¤ë¥¸ìª½ ë²½
 };
 
 
 
-// ------- Çà·Ä °è»ê ------
+// ------- í–‰ë ¬ ê³„ì‚° ------
 struct Mat4 {
     float m[16];
 };
 
-// ´ÜÀ§Çà·Ä
+// ë‹¨ìœ„í–‰ë ¬
 Mat4 identity() {
     Mat4 mat = { {
           1,0,0,0,
@@ -145,31 +204,31 @@ Mat4 perspective(float fov, float aspect, float nearZ, float farZ) {
     return mat;
 }
 
-// --- Ãß°¡: Å©±â º¯È¯ Çà·Ä ---
+// --- ì¶”ê°€: í¬ê¸° ë³€í™˜ í–‰ë ¬ ---
 Mat4 scale(float sx, float sy, float sz)
 {
-    Mat4 m = { 0 };      // ¸ğµÎ 0À¸·Î ÃÊ±âÈ­
+    Mat4 m = { 0 };      // ëª¨ë‘ 0ìœ¼ë¡œ ì´ˆê¸°í™”
     m.m[0] = sx;       // (0,0)
     m.m[5] = sy;       // (1,1)
     m.m[10] = sz;       // (2,2)
-    m.m[15] = 1.0f;     // (3,3) µ¿Â÷ÁÂÇ¥¿ë 1
+    m.m[15] = 1.0f;     // (3,3) ë™ì°¨ì¢Œí‘œìš© 1
     return m;
 }
 
-// --- Ãß°¡: ÀÌµ¿ Çà·Ä ---
+// --- ì¶”ê°€: ì´ë™ í–‰ë ¬ ---
 Mat4 translate(float tx, float ty, float tz)
 {
-    Mat4 m = identity(); // ±âº»Àº ´ÜÀ§Çà·Ä
-    m.m[12] = tx;        // 4x4 Çà·Ä¿¡¼­ (3,0) = x ÀÌµ¿
-    m.m[13] = ty;        // (3,1) = y ÀÌµ¿
-    m.m[14] = tz;        // (3,2) = z ÀÌµ¿
+    Mat4 m = identity(); // ê¸°ë³¸ì€ ë‹¨ìœ„í–‰ë ¬
+    m.m[12] = tx;        // 4x4 í–‰ë ¬ì—ì„œ (3,0) = x ì´ë™
+    m.m[13] = ty;        // (3,1) = y ì´ë™
+    m.m[14] = tz;        // (3,2) = z ì´ë™
     return m;
 }
 
 
-// ------ Çà·Ä ÇÔ¼ö ---------------------------------
+// ------ í–‰ë ¬ í•¨ìˆ˜ ---------------------------------
 
-// --------------- ÆÄÀÏ ºÒ·¯¿À±â -----------------------------------------
+// --------------- íŒŒì¼ ë¶ˆëŸ¬ì˜¤ê¸° -----------------------------------------
 char* filetobuf(const char* file)
 {
     FILE* fptr;
@@ -206,7 +265,7 @@ void make_vertexShaders()
     if (!result)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: vertex shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -226,7 +285,7 @@ void make_fragmentShaders()
     if (!result)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: frag_shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: frag_shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -249,7 +308,7 @@ GLuint createShaderProgram()
     glGetProgramiv(shaderID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderID, 512, NULL, errorLog);
-        std::cerr << "ERROR: shader program ¿¬°á ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: shader program ì—°ê²° ì‹¤íŒ¨\n" << errorLog << std::endl;
         return false;
     }
 
@@ -260,7 +319,7 @@ GLuint createShaderProgram()
 
 
 
-// --------- µµÇü ÃÊ±âÈ­ -----------------------------
+// --------- ë„í˜• ì´ˆê¸°í™” -----------------------------
 
 void setupCubeVAOs()
 {
@@ -271,7 +330,7 @@ void setupCubeVAOs()
             for (int j = 0; j < 3; j++) data[i * 6 + j] = cubeVertices[vi][j];
             for (int j = 0; j < 3; j++) data[i * 6 + 3 + j] = cubeFaceColors[f][j];
 
-            glEnableVertexAttribArray(1); // ¹Ù´Ú ·¹ÀÎ¿ë VAO
+            glEnableVertexAttribArray(1); // ë°”ë‹¥ ë ˆì¸ìš© VAO
 
         }
 
@@ -286,12 +345,12 @@ void setupCubeVAOs()
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        // ---- 2) ¹Ù´Ú 3µîºĞ¿ë ¼¼·Î ¶óÀÎ VAO ----
-        // tunnelSegments = 20, ÇÑ ¼¼±×¸ÕÆ® ±æÀÌ = 1.0f ÀÌ´Ï±î ÀüÃ¼ ±æÀÌ 20.0f
+        // ---- 2) ë°”ë‹¥ 3ë“±ë¶„ìš© ì„¸ë¡œ ë¼ì¸ VAO ----
+        // tunnelSegments = 20, í•œ ì„¸ê·¸ë¨¼íŠ¸ ê¸¸ì´ = 1.0f ì´ë‹ˆê¹Œ ì „ì²´ ê¸¸ì´ 20.0f
         float lineLength = 20.0f;
 
-        // ¹Ù´Ú y´Â -0.5 ÀÌ´Ï±î »ìÂ¦¸¸ À§·Î (-0.49) ¶ç¿ö¼­ z-fighting ¹æÁö
-        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // Èò»ö
+        // ë°”ë‹¥ yëŠ” -0.5 ì´ë‹ˆê¹Œ ì‚´ì§ë§Œ ìœ„ë¡œ (-0.49) ë„ì›Œì„œ z-fighting ë°©ì§€
+        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // í°ìƒ‰
 
         GLfloat lineVertices[] = {
             // x,      y,       z,             r, g, b
@@ -323,47 +382,380 @@ void drawCubeFace(int f) {
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 
-// --- Ãß°¡ --- ·¹ÀÎ °æ°è¼± ÇÏ³ª ±×¸®±â (ÇöÀç model Çà·Ä ±âÁØ)
+// --- ì¶”ê°€ --- ë ˆì¸ ê²½ê³„ì„  í•˜ë‚˜ ê·¸ë¦¬ê¸° (í˜„ì¬ model í–‰ë ¬ ê¸°ì¤€)
 void drawLaneLine() {
     glBindVertexArray(vaoLaneLine);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
-// ----------------- Å°º¸µå ÀÔ·Â ---------------------
-// +++ Å°º¸µå Äİ¹é ÇÔ¼ö Ãß°¡ +++
+
+
+
+
+//====================================================================
+// ================== â˜…â˜…â˜… ì¥ì• ë¬¼ í•¨ìˆ˜ êµ¬í˜„ â˜…â˜…â˜… ==================
+void initObstacles()
+{
+    for (int i = 0; i < MAX_OBSTACLES; ++i) {
+        obstacles[i].active = false;
+        obstacles[i].x = 0.0f;
+        obstacles[i].z = 0.0f;
+        obstacles[i].size = 0.25f; // ê¸°ë³¸ í¬ê¸°
+        obstacles[i].lane = 0;   // ê¸°ë³¸ì€ ê°€ìš´ë° ë ˆì¸ìœ¼ë¡œ ì´ˆê¸°í™”
+    }
+}
+// ì¥ì• ë¬¼ í•˜ë‚˜ë¥¼ ëœë¤ ë ˆì¸ì— ìƒì„±
+void spawnRandomObstacle()
+{
+    // ë¹„í™œì„± ìŠ¬ë¡¯ ì°¾ê¸°
+    int idx = -1;
+    for (int i = 0; i < MAX_OBSTACLES; ++i) {
+        if (!obstacles[i].active) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx == -1) return; // ë¹ˆìë¦¬ ì—†ìœ¼ë©´ ìƒì„± ì•ˆ í•¨
+
+    // 0,1,2 ì¤‘ í•˜ë‚˜ (ë°°ì—´ ì¸ë±ìŠ¤)
+    int laneIndex = rand() % 3;
+    // ì‹¤ì œ ë…¼ë¦¬ ë ˆì¸ ë²ˆí˜¸ (-1,0,1)
+    int logicalLane = laneIndex - 1;
+
+    // ì¶©ëŒ íŒì •ìš© ë ˆì¸ ë²ˆí˜¸ ì €ì¥
+    obstacles[idx].lane = logicalLane;
+
+    // ê·¸ë¦¼ìš© x ìœ„ì¹˜ (ë²½ ìª½ìœ¼ë¡œ ë°€ê³  ì‹¶ìœ¼ë©´ OBSTACLE_SHIFT ë¡œ ì¡°ì ˆ)
+    obstacles[idx].x = OBSTACLE_LANE_POS[laneIndex];
+
+    obstacles[idx].size = obstacleSize;
+    obstacles[idx].active = true;
+
+    obstacles[idx].z = OBSTACLE_SPAWN_Z - tunnelOffsetZ;
+
+}
+
+void updateObstacles()
+{
+    // 1) ê¸°ì¡´ ì¥ì• ë¬¼ë“¤ ì •ë¦¬
+    for (int i = 0; i < MAX_OBSTACLES; ++i) {
+        if (!obstacles[i].active) continue;
+
+        // í™”ë©´ì—ì„œ ë³´ì´ëŠ” ì‹¤ì œ z
+        float worldZ = obstacles[i].z + tunnelOffsetZ;
+
+        // í”Œë ˆì´ì–´(ëŒ€ëµ z = -5) ë’¤ë¡œ ì™„ì „íˆ ì§€ë‚˜ê°€ë©´ ë¹„í™œì„±í™”
+        if (worldZ > 5.0f) {
+            obstacles[i].active = false;
+        }
+    }
+
+    // 2) ìë™ ì´ë™ ì¤‘ì¼ ë•Œë§Œ ìƒˆ ì¥ì• ë¬¼ ìƒì„±
+    if (!isAutoMove) return;
+
+    // í„°ë„ì´ ì „ì§„í•œ ê±°ë¦¬ ê³„ì‚°
+    float distanceSinceLastSpawn = tunnelOffsetZ - lastSpawnOffsetZ;
+
+    // â˜…â˜…â˜… OBSTACLE_Z_GAP ë§Œí¼ ì „ì§„í•  ë•Œë§ˆë‹¤ í•œ ê°œ ìƒì„± â˜…â˜…â˜…
+    // â†’ ê°„ê²©ì´ í•­ìƒ ì¼ì •í•˜ê²Œ ìœ ì§€ë¨ (ì í”„+ì¢Œìš° ì´ë™í•  ì‹œê°„ ì¶©ë¶„íˆ í™•ë³´)
+    if (distanceSinceLastSpawn > OBSTACLE_Z_GAP) {
+        spawnRandomObstacle();
+        lastSpawnOffsetZ = tunnelOffsetZ;
+    }
+}
+
+// ============================================================
+
+
+
+
+
+
+
+//idle í•¨ìˆ˜ ì¶”ê°€( ìë™ ì´ë™)
+//idle í•¨ìˆ˜ (ìë™ ì´ë™ ë° ì í”„ ë¬¼ë¦¬ ê³„ì‚°)
+//idle í•¨ìˆ˜ (ìë™ ì´ë™ ë° ì í”„, ë ˆì¸ ë³€ê²½ ì• ë‹ˆë©”ì´ì…˜)
+void idle() {
+    // 0. í”„ë ˆì„ ê°„ ì‹œê°„(dt) ê³„ì‚° ---------------------------------
+    static int prevTime = glutGet(GLUT_ELAPSED_TIME);  // ì²˜ìŒ í˜¸ì¶œ ì‹œ ì´ˆê¸°í™”
+
+    int currentTime = glutGet(GLUT_ELAPSED_TIME);
+    float dt = (currentTime - prevTime) / 1000.0f;     // ë°€ë¦¬ì´ˆ â†’ ì´ˆ ë‹¨ìœ„
+    if (dt < 0.0001f) dt = 0.0001f;                    // ë„ˆë¬´ ì‘ì€ ê°’ ë°©ì§€
+    if (dt > 0.05f)   dt = 0.05f;                      // ë ‰ ê±¸ë ¤ë„ ì´ìƒí•˜ê²Œ íŠ€ì§€ ì•Šê²Œ
+    prevTime = currentTime;
+
+    bool needRedisplay = false;
+
+
+
+    // 1. ìë™ ì´ë™ ë¡œì§ ------------------------------------------
+    if (isAutoMove) {
+        // ê¸°ì¡´ì—ëŠ” frameë‹¹ autoMoveSpeedPerFrame ë§Œí¼ ì›€ì§ì˜€ìœ¼ë‹ˆê¹Œ
+        // ëŒ€ëµ 60fps ê¸°ì¤€ ì†ë„ ìœ ì§€í•˜ë ¤ê³  dt * 60.0fë¥¼ ê³±í•´ì¤Œ
+        tunnelOffsetZ += autoMoveSpeedPerFrame * (dt * 60.0f);
+
+        updateObstacles();
+
+        // ë¡œë´‡ ê±·ê¸° ì• ë‹ˆë©”ì´ì…˜ë„ ì‹œê°„ì— ì‚´ì§ ë¹„ë¡€í•˜ê²Œ
+        limbAngle += 120.0f * limbDir * dt;   // ëŒ€ëµ ì´ˆë‹¹ 120ë„ ì •ë„
+        if (limbAngle > 45.0f || limbAngle < -45.0f) {
+            limbDir *= -1.0f; // ë°©í–¥ ì „í™˜
+        }
+
+        needRedisplay = true;
+    }
+    else {
+        // ë©ˆì¶°ìˆì„ ë•ŒëŠ” ì°¨ë · ìì„¸ë¡œ ë³µê·€ (ì‹œê°„ì— ë¹„ë¡€í•´ì„œ ì²œì²œíˆ 0ìœ¼ë¡œ)
+        if (fabs(limbAngle) > 0.1f) {
+            limbAngle *= powf(0.5f, dt * 10.0f);  // dtì— ë”°ë¼ ì„œì„œíˆ ì¤„ì–´ë“¦
+            needRedisplay = true;
+        }
+    }
+
+
+
+    // 2. ì í”„ ë¬¼ë¦¬ ë¡œì§ (ì‹œê°„ ê¸°ë°˜) -------------------------------
+    if (isJumping) {
+        // ì¤‘ë ¥ ë°©í–¥ìœ¼ë¡œ ì†ë„ ê°ì†Œ (v = v - g * dt)
+        jumpVelocity -= GRAVITY * dt;
+
+        // ìœ„ì¹˜ëŠ” ì†ë„ì— ë”°ë¼ ë³€í™” (y = y + v * dt)
+        jumpY += jumpVelocity * dt;
+
+        // ë°”ë‹¥ì— ë‹¿ì•˜ëŠ”ì§€ í™•ì¸
+        if (jumpY <= 0.0f) {
+            jumpY = 0.0f;
+            isJumping = false;
+            jumpVelocity = 0.0f;
+        }
+
+        needRedisplay = true;
+    }
+
+
+
+    // 3. ë ˆì¸ ë³€ê²½ ì• ë‹ˆë©”ì´ì…˜ (ì¢Œìš° ì´ë™) -------------------------
+    if (fabs(playerX - targetPlayerX) > 0.001f) {
+        // laneSwitchSpeedë¥¼ "ì´ˆë‹¹ ì´ë™ëŸ‰"ì²˜ëŸ¼ ì“°ê¸° ìœ„í•´ dtë¥¼ ê³±í•´ì¤Œ
+        float dir = (playerX < targetPlayerX) ? 1.0f : -1.0f;
+        playerX += dir * laneSwitchSpeed * (dt * 60.0f);
+
+        // ëª©í‘œë¥¼ ì‚´ì§ ë„˜ìœ¼ë©´ ë”± ë§ì¶°ì£¼ê¸°
+        if ((dir > 0.0f && playerX > targetPlayerX) ||
+            (dir < 0.0f && playerX < targetPlayerX)) {
+            playerX = targetPlayerX;
+        }
+
+        needRedisplay = true;
+    }
+
+
+
+    // 4. í™”ë©´ ê°±ì‹  ìš”ì²­ ------------------------------------------
+    if (needRedisplay) {
+        glutPostRedisplay();
+    }
+}
+
+
+// ----------------- ì¼ë°˜ í‚¤ë³´ë“œ ì…ë ¥ (ìŠ¤í˜ì´ìŠ¤ë°” ë“±) ---------------------
+void keyboard(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case 32: // Spacebar ASCII code
+        if (!isJumping) // ì´ë¯¸ ì í”„ ì¤‘ì´ ì•„ë‹ ë•Œë§Œ ì í”„ ê°€ëŠ¥
+        {
+            isJumping = true;
+            jumpVelocity = JUMP_POWER; // ìœ„ë¡œ ì†Ÿêµ¬ì¹˜ëŠ” í˜ ë¶€ì—¬
+        }
+        break;
+
+        // ë‚˜ì¤‘ì— 'q'ë¥¼ ëˆŒëŸ¬ ì¢…ë£Œí•˜ëŠ” ê¸°ëŠ¥ ë“±ì„ ì—¬ê¸°ì— ì¶”ê°€í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+    case 'q':
+    case 'Q':
+    case 27: // ESC key
+        exit(0);
+        break;
+    }
+}
+
+// ----------------- í‚¤ë³´ë“œ ì…ë ¥ ---------------------
+// +++ í‚¤ë³´ë“œ ì½œë°± í•¨ìˆ˜ ì¶”ê°€ +++
 void specialKeyboard(int key, int x, int y)
 {
     switch (key)
     {
-    case GLUT_KEY_UP: // 'UP' È­»ìÇ¥ Å°
-        //playerZ -= moveSpeed; // ZÃà À½ÀÇ ¹æÇâ(¾ÕÀ¸·Î)À¸·Î ÀÌµ¿
-        //break;
-        // °´Ã¼ ÀÌµ¿ ´ë½Å ÅÍ³Î ÀÌµ¿À¸·Î
-        tunnelOffsetZ += moveSpeed;   // ÅÍ³ÎÀ» Ä«¸Ş¶ó ÂÊÀ¸·Î ²ø¾î´ç±è -> ¾ÕÀ¸·Î ´Ş¸®´Â ´À³¦
-        break;
-    case GLUT_KEY_DOWN: // 'DOWN' È­»ìÇ¥ Å°
-        //playerZ += moveSpeed; // ZÃà ¾çÀÇ ¹æÇâ(µÚ·Î)À¸·Î ÀÌµ¿
-        //break;
-        tunnelOffsetZ -= moveSpeed;   // ÅÍ³ÎÀ» µÚ·Î ¹Ğ¾î³¿ -> µÚ·Î °¡´Â ´À³¦
-        break;
-    case GLUT_KEY_LEFT: // 'LEFT' È­»ìÇ¥ Å°
-        playerX -= moveSpeed; // XÃà À½ÀÇ ¹æÇâ(¿ŞÂÊ)À¸·Î ÀÌµ¿
-        break;
-    case GLUT_KEY_RIGHT: // 'RIGHT' È­»ìÇ¥ Å°
-        playerX += moveSpeed; // XÃà ¾çÀÇ ¹æÇâ(¿À¸¥ÂÊ)À¸·Î ÀÌµ¿
-        break;
+        case GLUT_KEY_UP: // 'Page Up' í‚¤
+            isAutoMove = !isAutoMove; // ìë™ ì´ë™ í”Œë˜ê·¸ë¥¼ ë„ê±°ë‚˜ ì¼¬ (í† ê¸€)
+            break;
+        case GLUT_KEY_DOWN: // 'DOWN' í™”ì‚´í‘œ í‚¤
+            //playerZ += moveSpeed; // Zì¶• ì–‘ì˜ ë°©í–¥(ë’¤ë¡œ)ìœ¼ë¡œ ì´ë™
+            //break;
+            tunnelOffsetZ -= moveSpeed;   // í„°ë„ì„ ë’¤ë¡œ ë°€ì–´ëƒ„ -> ë’¤ë¡œ ê°€ëŠ” ëŠë‚Œ
+            break;
+        case GLUT_KEY_LEFT:
+        {
+            // ì™¼ìª½ ë(-1)ì´ ì•„ë‹ ë•Œë§Œ ì™¼ìª½ìœ¼ë¡œ í•œ ì¹¸ ì´ë™ ëª…ë ¹
+            if (currentLane > -1) {
+                currentLane--; // -1 ê°ì†Œ
+                targetPlayerX = currentLane * LANE_WIDTH; // ëª©í‘œ ìœ„ì¹˜ ì¬ì„¤ì • (-0.5 or 0.0)
+            }
+            break;
+            //=======================================================
+            float nextX = playerX - moveSpeed;
+
+            bool blocked = false;
+
+            for (int i = 0; i < MAX_OBSTACLES; ++i) {
+                if (!obstacles[i].active) continue;
+
+                float worldZ = obstacles[i].z + tunnelOffsetZ;
+
+                // í”Œë ˆì´ì–´ Z ê·¼ì²˜ì— ìˆëŠ” ì¥ì• ë¬¼ë§Œ ê²€ì‚¬
+                if (fabs(worldZ - (-5.0f)) < (playerScale + obstacles[i].size)) {
+
+                    // X ì¶©ëŒ ë²”ìœ„ ê²€ì‚¬ (ì¢Œìš° ê²¹ì¹˜ë©´ ì¶©ëŒ)
+                    if (fabs(nextX - obstacles[i].x) < (playerScale + obstacles[i].size)) {
+                        blocked = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!blocked) {
+                playerX = nextX;
+            }
+            break;
+        //=========================================================
+
+        }
+
+    case GLUT_KEY_RIGHT:
+    {
+            // ì˜¤ë¥¸ìª½ ë(1)ì´ ì•„ë‹ ë•Œë§Œ ì˜¤ë¥¸ìª½ìœ¼ë¡œ í•œ ì¹¸ ì´ë™ ëª…ë ¹
+            if (currentLane < 1) {
+                currentLane++; // +1 ì¦ê°€
+                targetPlayerX = currentLane * LANE_WIDTH; // ëª©í‘œ ìœ„ì¹˜ ì¬ì„¤ì • (0.0 or 0.5)
+            }
+            break;
+            //===============================================
+            float nextX = playerX + moveSpeed;
+
+            bool blocked = false;
+
+            for (int i = 0; i < MAX_OBSTACLES; ++i) {
+                if (!obstacles[i].active) continue;
+
+                float worldZ = obstacles[i].z + tunnelOffsetZ;
+
+                if (fabs(worldZ - (-5.0f)) < (playerScale + obstacles[i].size)) {
+
+                    if (fabs(nextX - obstacles[i].x) < (playerScale + obstacles[i].size)) {
+                        blocked = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!blocked) {
+                playerX = nextX;
+            }
+            break;
+            //==========================================================
+
+        }
     }
 
-    // È­¸éÀ» °»½ÅÇÏµµ·Ï ¿äÃ»
+    // í™”ë©´ì„ ê°±ì‹ í•˜ë„ë¡ ìš”ì²­
     glutPostRedisplay();
 }
 
-// -----------------·»´õ¸µ---------------------
+// ë¡œë´‡ì˜ ê° ë¶€ìœ„(íë¸Œ)ë¥¼ ê·¸ë¦¬ëŠ” í—¬í¼ í•¨ìˆ˜
+void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
+    // 1. ì…°ì´ë” ìœ ë‹ˆí¼ ìœ„ì¹˜ ê°€ì ¸ì˜¤ê¸°
+    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
+    GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
+    GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
 
+    // 2. GLM í–‰ë ¬ì„ ì…°ì´ë”ë¡œ ì „ì†¡ (glm::value_ptr ì‚¬ìš©)
+    glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+
+    // 3. ìƒ‰ìƒ ì „ì†¡ ë° ìƒ‰ìƒ ëª¨ë“œ ì¼œê¸°
+    glUniform3f(locObjectColor, color.r, color.g, color.b); // ì›í•˜ëŠ” ìƒ‰ìƒ
+    glUniform1i(locUseObjectColor, 1); // true (ë¡œë´‡ ìƒ‰ìƒ ì‚¬ìš©)
+
+    // 4. ìœ¡ë©´ì²´ ê·¸ë¦¬ê¸° (ê¸°ì¡´ vaoCube í™œìš©)
+    // ìƒ‰ìƒì€ ì…°ì´ë”ì—ì„œ ë®ì–´ì“°ë¯€ë¡œ ì•„ë¬´ vaoë‚˜ ì¨ë„ ë˜ì§€ë§Œ 6ë©´ì„ ë‹¤ ê·¸ë ¤ì•¼ í•¨
+    for (int i = 0; i < 6; i++) {
+        glBindVertexArray(vaoCube[i]);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+
+    // 5. ìƒ‰ìƒ ëª¨ë“œ ë„ê¸° (í„°ë„ ê·¸ë¦´ ë•Œ ì˜í–¥ì„ ì£¼ì§€ ì•Šë„ë¡)
+    glUniform1i(locUseObjectColor, 0);
+}
+
+// ë¡œë´‡ ê·¸ë¦¬ê¸° í•¨ìˆ˜ (ì§ˆë¬¸í•˜ì‹  ì½”ë“œ ê¸°ë°˜ ìˆ˜ì •)
+void drawRobot(float x, float y, float z) {
+    // ë¡œë´‡ì˜ ê¸°ë³¸ ìœ„ì¹˜ ì„¤ì •
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(x, y, z));
+
+    // ë¡œë´‡ì´ ë’¤(Z-)ë¥¼ ë³´ê³  ìˆìœ¼ë¯€ë¡œ 180ë„ íšŒì „ (í”Œë ˆì´ì–´ ì‹œì )
+    // í•„ìš”ì— ë”°ë¼ ê°ë„ ì¡°ì ˆ: glm::radians(180.0f)
+    model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
+
+    // 1. ëª¸í†µ
+    glm::mat4 bodyM = glm::scale(model, glm::vec3(0.4f, 0.5f, 0.2f));
+    drawColoredCube(bodyM, glm::vec3(0.0f, 0.0f, 1.0f)); // íŒŒë‘
+
+    // 2. ë¨¸ë¦¬
+    glm::mat4 headM = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
+    glm::mat4 headScaleM = glm::scale(headM, glm::vec3(0.3f, 0.3f, 0.3f));
+    drawColoredCube(headScaleM, glm::vec3(1.0f, 0.8f, 0.6f)); // ì‚´ìƒ‰
+
+    // 3. ì½” (ë¹¨ê°•)
+    glm::mat4 noseM = glm::translate(headM, glm::vec3(0.0f, 0.0f, 0.18f)); // ì•½ê°„ ì•ìœ¼ë¡œ ëºŒ
+    noseM = glm::scale(noseM, glm::vec3(0.05f, 0.05f, 0.05f));
+    drawColoredCube(noseM, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    // íŒ”ë‹¤ë¦¬ ì›€ì§ì„ ê°ë„
+    float swing = glm::radians(limbAngle);
+
+    // 4. ì™¼íŒ” (ë…¸ë‘)
+    glm::mat4 lArmM = glm::translate(model, glm::vec3(-0.3f, 0.15f, 0.0f));
+    lArmM = glm::rotate(lArmM, swing, glm::vec3(1.0f, 0.0f, 0.0f)); // íšŒì „
+    lArmM = glm::translate(lArmM, glm::vec3(0.0f, -0.2f, 0.0f)); // íšŒì „ì¶• ì•„ë˜ë¡œ ë‚´ë¦¬ê¸°
+    drawColoredCube(glm::scale(lArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(1.0f, 1.0f, 0.0f));
+
+    // 5. ì˜¤ë¥¸íŒ” (ì´ˆë¡)
+    glm::mat4 rArmM = glm::translate(model, glm::vec3(0.3f, 0.15f, 0.0f));
+    rArmM = glm::rotate(rArmM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));
+    rArmM = glm::translate(rArmM, glm::vec3(0.0f, -0.2f, 0.0f));
+    drawColoredCube(glm::scale(rArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // 6. ì™¼ë‹¤ë¦¬ (íšŒìƒ‰ + ë³´ë¼ ì‚´ì§ ì„ì¸ ìƒ‰ìœ¼ë¡œ ë°”ê¾¸ì…¨ë„¤ìš”)
+    glm::mat4 lLegM = glm::translate(model, glm::vec3(-0.12f, -0.25f, 0.0f)); // 1. ì—‰ë©ì´ ìœ„ì¹˜ë¡œ ì´ë™
+    lLegM = glm::rotate(lLegM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));          // 2. íšŒì „
+
+    lLegM = glm::translate(lLegM, glm::vec3(0.0f, -0.15f, 0.0f));
+    drawColoredCube(glm::scale(lLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.5f, 0.3f, 0.5f));
+
+    // 7. ì˜¤ë¥¸ë‹¤ë¦¬
+    glm::mat4 rLegM = glm::translate(model, glm::vec3(0.12f, -0.25f, 0.0f));
+    rLegM = glm::rotate(rLegM, swing, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    rLegM = glm::translate(rLegM, glm::vec3(0.0f, -0.15f, 0.0f));
+    drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.3f, 0.3f, 0.3f));
+}
 void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
 
-    // --- Ä«¸Ş¶ó(View)¿Í ¿ø±Ù(Projection) ¼³Á¤ ---
+    // --- ì¹´ë©”ë¼(View)ì™€ ì›ê·¼(Projection) ì„¤ì • ---
     Mat4 view = identity();
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
@@ -372,122 +764,193 @@ void Display() {
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
-
-    // ¹à±â À¯´ÏÆû À§Ä¡ ÇÑ ¹ø ±¸ÇØµÎ±â ---------------------- test ----------
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
+    // ë°ê¸° ìœ ë‹ˆí¼
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
 
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
-    int tunnelSegments = 300; // ÅÍ³Î ±æÀÌ
-    float tunnelScaleXY = 2.0f; // ÅÍ³Î ³Êºñ/³ôÀÌ ¹èÀ² (2¹è)
+    // --- í„°ë„ ê·¸ë¦¬ê¸° (íë¸Œ ë²½ë©´ ë°˜ë³µ) ---
+    int   tunnelSegments = 300;
+    float tunnelScaleXY = 2.0f;                   // í„°ë„ í­/ë†’ì´ ë°°ìœ¨
+    float playerBaseY = (-0.5f * tunnelScaleXY) + 0.5f; // ë°”ë‹¥ ê¸°ì¤€ í”Œë ˆì´ì–´ ë² ì´ìŠ¤ Y
 
-    for (int i = 0; i < tunnelSegments; i++)
-    {
-        // 1. Model Çà·Ä °è»ê:
-
-        // ÅÍ³Î Å©±â Á¶Àı (X: 2¹è, Y: 2¹è, Z: 1¹è)
-        // ZÃà Å©±â´Â 1.0À¸·Î À¯ÁöÇØ¾ß ÅÍ³Î Á¶°¢µéÀÌ ¼­·Î ºÙ½À´Ï´Ù.
+    for (int i = 0; i < tunnelSegments; i++) {
         Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-
-        //// ZÃàÀ¸·Î ÅÍ³Î Á¶°¢ ¹èÄ¡
-        //Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
-        // i¹øÂ° Á¶°¢ÀÇ ±âº» À§Ä¡ -(float)i ¿¡ ÅÍ³Î ÀÌµ¿·®(tunnelOffsetZ)À» ´õÇØ¼­
-        // ÅÍ³Î ÀüÃ¼°¡ ¾Õ/µÚ·Î ¹Ğ·Á³ª°Ô ¸¸µç´Ù.
-        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f + tunnelOffsetZ);
-
-
-        // Å©±â Á¶Àı ÈÄ ÀÌµ¿
+        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i + tunnelOffsetZ);
         Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
 
-        // 2. ¼ÎÀÌ´õ¿¡ ÀÌ Å¥ºê Á¶°¢ÀÇ Model Çà·Ä Àü¼Û
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
-        // ¡Ú ¿©±â¿¡¼­ ¼¼±×¸ÕÆ®¸¶´Ù ¹à±â ¹ø°¥¾Æ ÁÖ±â
         float brightness = (i % 2 == 0) ? 0.4f : 1.0f;
         glUniform1f(locBrightness, brightness);
 
-        // 3. Å¥ºêÀÇ 4°³ º®¸é¸¸ ±×¸®±â
-        drawCubeFace(2); // ¾Æ·§¸é
-        drawCubeFace(3); // À­¸é
-        drawCubeFace(4); // ¿ŞÂÊ ¸é
-        drawCubeFace(5); // ¿À¸¥ÂÊ ¸é
+        drawCubeFace(2); // ë°”ë‹¥
+        drawCubeFace(4); // ì™¼ìª½
+        drawCubeFace(5); // ì˜¤ë¥¸ìª½
     }
 
-    // +++ ÇÃ·¹ÀÌ¾î Å¥ºê ±×¸®±â +++
-
-    // 1. Model Çà·Ä °è»ê:
-
-    // ÇÃ·¹ÀÌ¾î Å¥ºê Å©±â (0.2¹è)
-    float playerScale = 0.3f; // ÇÃ·¹ÀÌ¾î Å©±â¸¦ º¯¼ö·Î ÀúÀå
-    Mat4 modelPlayerScale = scale(playerScale, playerScale, playerScale);
-
-    // ÇÃ·¹ÀÌ¾î À§Ä¡ °è»ê:
-    // 1. ÅÍ³Î ¹Ù´Ú Y À§Ä¡:
-    //    ±âº» Å¥ºê ¹Ù´Ú: -0.5f
-    //    ÅÍ³Î Y ½ºÄÉÀÏ: tunnelScaleXY (2.0f)
-    //    -> ½ÇÁ¦ ÅÍ³Î ¹Ù´Ú Y = -0.5f * 2.0f = -1.0f
-    // 2. ÇÃ·¹ÀÌ¾î Y À§Ä¡:
-    //    ÇÃ·¹ÀÌ¾î Å©±â: 0.2f -> ÇÃ·¹ÀÌ¾î Àı¹İ Å©±â: 0.1f
-    //    -> ÇÃ·¹ÀÌ¾î Áß½É Y = ½ÇÁ¦ ÅÍ³Î ¹Ù´Ú + ÇÃ·¹ÀÌ¾î Àı¹İ Å©±â
-    //    -> -1.0f + 0.1f = -0.9f
-    float playerY = (-0.5f * tunnelScaleXY) + (playerScale / 2.0f);
-
-    // 3. ÇÃ·¹ÀÌ¾î Z À§Ä¡:
-    //    *** Àü¿ª º¯¼ö »ç¿ëÇÏµµ·Ï ¼öÁ¤ ***
-    //Mat4 modelPlayerTranslate = translate(playerX, playerY, playerZ);
-    // ¾Æ¿¹ »ó¼ö °íÁ¤ÇØµµ µÊ
-    Mat4 modelPlayerTranslate = translate(playerX, playerY, -5.0f);
-
-
-    // ÃÖÁ¾ Model Çà·Ä °è»ê (½ºÄÉÀÏ Àû¿ë ÈÄ ÀÌµ¿)
-    Mat4 modelPlayer = multifly(modelPlayerTranslate, modelPlayerScale);
-
-    // 2. ¼ÎÀÌ´õ¿¡ ÇÃ·¹ÀÌ¾î Å¥ºêÀÇ Model Çà·Ä Àü¼Û
-    glUniformMatrix4fv(locModel, 1, GL_FALSE, modelPlayer.m);
-
-    // 3. Å¥ºêÀÇ 6°³ ¸é ¸ğµÎ ±×¸®±â
-    for (int f = 0; f < 6; f++) {
-        drawCubeFace(f);
-    }
-
-
-    // --- Ãß°¡ --- 3·¹ÀÎ ½ºÆ®¸³ ±×¸®±â ---
-       // ¹Ù´ÚÀ» 3µîºĞÇÏ´Â ¼¼·Î ¶óÀÎ 2°³ ±×¸®±â
+    //// --- ë°”ë‹¥ 3ë ˆì¸ ê²½ê³„ì„  ê·¸ë¦¬ê¸° ---
     {
-        // ±âÁØ model: ´ÜÀ§Çà·Ä (¶óÀÎ ÀÚÃ¼°¡ ÀÌ¹Ì z·Î ±æ°Ô ¸¸µé¾îÁ® ÀÖÀ½)
         Mat4 model = identity();
 
-        // 1) ¿ŞÂÊ °æ°è¼±
+        // ë ˆì¸ ê²½ê³„ì„ ì€ "ë ˆì¸ ì¤‘ì‹¬"ë“¤ì˜ ì¤‘ê°„ ì§€ì ì— ìœ„ì¹˜ì‹œí‚¤ê¸°
+        float leftLineX = (LANE_POSITIONS[0] + LANE_POSITIONS[1] + 0.1) * 0.5f; // ì™¼/ì¤‘ê°„ ì‚¬ì´
+        float rightLineX = (LANE_POSITIONS[1] + LANE_POSITIONS[2] - 0.1) * 0.5f; // ì¤‘ê°„/ì˜¤ë¥¸ìª½ ì‚¬ì´
+
         Mat4 leftLine = model;
-        leftLine.m[12] = -0.25f;          // x ÀÌµ¿ => °ªÀÌ ÀÛÀ»¼ö·Ï °¡¿îµ¥ Á¼¾ÆÁü
+        leftLine.m[12] = leftLineX;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
         drawLaneLine();
 
-        // 2) ¿À¸¥ÂÊ °æ°è¼±
         Mat4 rightLine = model;
-        rightLine.m[12] = 0.25f;
+        rightLine.m[12] = rightLineX;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
         drawLaneLine();
     }
 
+    // ================== â˜… ì¥ì• ë¬¼ ê·¸ë¦¬ê¸° â˜… ==================
+    for (int i = 0; i < MAX_OBSTACLES; ++i) {
+        if (!obstacles[i].active) continue;
+
+        // ìŠ¤í° ë•Œ ë„£ì–´ ë‘” z + í„°ë„ ì´ë™ëŸ‰ = ì¥ì• ë¬¼ ê¸°ì¤€ z
+        float worldZ = obstacles[i].z + tunnelOffsetZ;
+        float obsSize = obstacles[i].size;
+
+        // Z ë°©í–¥ ê¸¸ì´ ê³„ì‚° (ì•/ë’¤ ëŒ€ì¹­ì¼ ë•Œì˜ ë°˜ê¸¸ì´)
+        float baseHalfDepth = 0.5f * obsSize;                    // ìŠ¤íŠ¸ë ˆì¹˜ ì „ ë°˜ê¸¸ì´
+        float stretchedHalfDepth = 0.5f * obsSize * OBSTACLE_Z_STRETCH; // ìŠ¤íŠ¸ë ˆì¹˜ í›„ ë°˜ê¸¸ì´
+
+        // "ì•ë©´ ìœ„ì¹˜ëŠ” ê·¸ëŒ€ë¡œ ë‘ê³  ë’¤ë¡œë§Œ ëŠ˜ë¦¬ê¸°" ìœ„í•´
+        // ì„¼í„°ë¥¼ ë’¤ìª½ìœ¼ë¡œ delta ë§Œí¼ ì˜®ê²¨ì¤Œ
+        float deltaCenterZ = stretchedHalfDepth - baseHalfDepth;      // ì–¼ë§ˆë‚˜ ë’¤ë¡œ ë°€ ê²ƒì¸ì§€
+        float centerZ = worldZ - deltaCenterZ;                   // ì‹¤ì œë¡œ ê·¸ë¦´ ë•Œ ì“¸ ì„¼í„° z
+
+        // ë„ˆë¬´ ë©€ë¦¬ ìˆëŠ” ê±´ ìŠ¤í‚µ (ì„¼í„° ê¸°ì¤€)
+        if (centerZ > 5.0f || centerZ < -100.0f) continue;
+
+        // Zë§Œ ê¸¸ì–´ì§„ ì§ìœ¡ë©´ì²´
+        Mat4 modelObsScale = scale(
+            obsSize,                          // X í­
+            obsSize,                          // Y ë†’ì´
+            obsSize * OBSTACLE_Z_STRETCH      // Z ê¸¸ì´
+        );
+
+        // ë°”ë‹¥ ìœ„ë¡œ ë°˜ ë†’ì´ë§Œí¼ ì˜¬ë ¤ì„œ ë”± ë¶™ê²Œ
+        float halfHeightY = 0.5f * obsSize;
+        float obstacleCenterY = (-0.5f * tunnelScaleXY) + halfHeightY;
+
+        // ë°©ê¸ˆ êµ¬í•œ centerZ ë¥¼ ì‚¬ìš©í•´ì„œ ë°°ì¹˜
+        Mat4 modelObsTranslate = translate(obstacles[i].x, obstacleCenterY, centerZ);
+        Mat4 modelObs = multifly(modelObsTranslate, modelObsScale);
+
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, modelObs.m);
+        glUniform1f(locBrightness, 0.8f);
+
+        for (int f = 0; f < 6; ++f) {
+            drawCubeFace(f);
+        }
+    }
+
+    // ================== â˜… ì¶©ëŒ + í”Œë«í¼ ë¡œì§ â˜… ==================
+        // í”Œë ˆì´ì–´ ì›”ë“œ Z (í•­ìƒ -3.0 ê·¼ì²˜)
+    float playerWorldZ = playerZ;
+
+    // í”Œë ˆì´ì–´ ì¶©ëŒ ë°•ìŠ¤ (ì¡°ê¸ˆ ì‘ê²Œ ì¡ì•„ì„œ ë„ˆë¬´ ì¼ì° ë©ˆì¶”ì§€ ì•Šê²Œ)
+    float playerHalfX = playerScale * 0.5f;
+    float playerHalfZ = 0.15f;           // Z ë°˜í­ ì¤„ì„
+
+    bool  onObstacle = false;         // ì§€ê¸ˆ ì¥ì• ë¬¼ ìœ„ì— ì„œ ìˆëŠ”ì§€
+    float platformJumpY = 0.0f;          // ë°Ÿê³  ìˆëŠ” ì¥ì• ë¬¼ì˜ jumpY ë†’ì´
+
+    for (int i = 0; i < MAX_OBSTACLES; ++i) {
+        if (!obstacles[i].active) continue;
+
+        // ì¥ì• ë¬¼ ì›”ë“œ Z ìœ„ì¹˜ (íë¸Œì˜ ì¤‘ì‹¬)
+        float worldZ = obstacles[i].z + tunnelOffsetZ;
+        float obsSize = obstacles[i].size;
+
+        // 1) ë ˆì¸ì´ ë‹¤ë¥´ë©´ X ë°©í–¥ìœ¼ë¡œëŠ” ì ˆëŒ€ ë¶€ë”ªíˆì§€ ì•ŠìŒ
+        if (obstacles[i].lane != currentLane) continue;
+
+        // 2) ì¥ì• ë¬¼ ì‹¤ì œ ëª¨ë¸ ê¸°ì¤€ ë°˜í­ ê³„ì‚°
+        float halfWidthX = 0.7f * obsSize;                    // X ë°˜í­
+        float halfDepthZ = 0.5f * obsSize * OBSTACLE_Z_STRETCH; // Z ë°˜í­ (zë¡œ ëŠ˜ì–´ë‚œ ë§Œí¼ ë°˜ì˜)
+
+        // 3) Z ë°©í–¥(ì•/ë’¤)ìœ¼ë¡œë§Œ ê²¹ì¹˜ëŠ”ì§€ í™•ì¸
+        bool overlapZ = fabs(playerWorldZ - worldZ) < (halfDepthZ + playerHalfZ);
+        if (!overlapZ) continue;
+
+        // 4) â€œjumpY ê¸°ì¤€â€ ì¥ì• ë¬¼ ìœ—ë©´ ë†’ì´
+        //    ë°”ë‹¥(-1.0)ì—ì„œ ì¥ì• ë¬¼ ìœ—ë©´ê¹Œì§€ ë†’ì´ê°€ ì •í™•íˆ obsSize ë§Œí¼ì´ë¼
+        //    jumpYê°€ obsSize ê°€ ë˜ë©´ ì¥ì• ë¬¼ ìœ„ì— ì˜¬ë¼ì„  ìƒíƒœê°€ ë¨.
+        float thisPlatformJumpY = obsSize;
+
+        if (isJumping) {
+            // ì í”„í•´ì„œ ë‚´ë ¤ì˜¤ëŠ” ì¤‘ì¸ë°, ì¥ì• ë¬¼ ë†’ì´ ê·¼ì²˜ì— ë‹¿ìœ¼ë©´ ì°©ì§€
+            if (jumpVelocity <= 0.0f &&
+                jumpY >= thisPlatformJumpY - 0.05f &&
+                jumpY <= thisPlatformJumpY + 0.05f)
+            {
+                isJumping = false;
+                jumpVelocity = 0.0f;
+                jumpY = thisPlatformJumpY;
+                onObstacle = true;
+                platformJumpY = thisPlatformJumpY;
+            }
+        }
+        else {
+            // ì í”„ ì¤‘ì´ ì•„ë‹Œ ìƒíƒœì—ì„œ ê²¹ì¹œ ê²½ìš°
+            if (jumpY > thisPlatformJumpY * 0.8f) {
+                // ì´ë¯¸ ìœ„ìª½ì— ìˆìœ¼ë©´ ì¥ì• ë¬¼ ìœ„ì— ì„œ ìˆëŠ” ê²ƒìœ¼ë¡œ ì²˜ë¦¬
+                jumpY = thisPlatformJumpY;
+                onObstacle = true;
+                platformJumpY = thisPlatformJumpY;
+            }
+            else {
+                // ê±°ì˜ ë°”ë‹¥ ë†’ì´ì—ì„œ ì •ë©´ìœ¼ë¡œ ë°•ìœ¼ë©´ ì•ìœ¼ë¡œ ì§„í–‰ì„ ë©ˆì¶¤
+                isAutoMove = false;
+            }
+        }
+    }
+
+    // 5) ìµœì¢… jumpY ì •ë¦¬
+    if (onObstacle) {
+        // ì¥ì• ë¬¼ ìœ„ì— ìˆì„ ë• jumpYë¥¼ ê·¸ ë†’ì´ë¡œ ê³ ì •
+        jumpY = platformJumpY;
+    }
+    else {
+        // ì–´ëŠ í”Œë«í¼ ìœ„ë„ ì•„ë‹ˆê³ , ë°”ë‹¥ë³´ë‹¤ ìœ„ì— ë–  ìˆëŠ”ë°
+        // ì í”„ ìƒíƒœê°€ ì•„ë‹ˆë©´ ìì—°ìŠ¤ëŸ½ê²Œ ë–¨ì–´ì§€ë„ë¡ ì í”„ ëª¨ë“œë¡œ ì „í™˜
+        if (!isJumping && jumpY > 0.0f) {
+            isJumping = true;
+            // ì´ë¯¸ ìœ„ì—ì„œ ë–¨ì–´ì§€ëŠ” ì¤‘ì´ë¼ ì´ˆê¸° ì†ë„ëŠ” 0ìœ¼ë¡œ ë‘ 
+            jumpVelocity = 0.0f;
+        }
+    }
+
+    // ìµœì¢… í”Œë ˆì´ì–´ Y
+    float finalPlayerY = playerBaseY + jumpY + 0.05f;
+
+    // ================== â˜… í”Œë ˆì´ì–´ ë¡œë´‡ ê·¸ë¦¬ê¸° (í•­ìƒ ë§¨ ìœ„ ë ˆì´ì–´) â˜…
+    glDisable(GL_DEPTH_TEST);
+    drawRobot(playerX, finalPlayerY, playerZ);
+    glEnable(GL_DEPTH_TEST);
 
     glutSwapBuffers();
+   
 }
-
 
 int main(int argc, char** argv)
 {
 
     srand((unsigned)time(NULL));
 
-    //--- À©µµ¿ì »ı¼ºÇÏ±â
+    //ìœˆë„ìš° ìƒì„±í•˜ê¸°
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ±íÀÌ ¹öÆÛ Ãß°¡
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ê¹Šì´ ë²„í¼ ì¶”ê°€
     glutInitWindowPosition(0, 0);
     glutInitWindowSize(800, 800);
-    glutCreateWindow("2025 Coding Test-Computer Graphics");
+    glutCreateWindow("CG Project");
 
-    //--- GLEW ÃÊ±âÈ­ÇÏ±â
+    //GLEW ì´ˆê¸°í™”í•˜ê¸°
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
     {
@@ -498,29 +961,31 @@ int main(int argc, char** argv)
         std::cout << "GLEW Initialized\n";
 
 
-    //--- ¼¼ÀÌ´õ ÀĞ¾î¿Í¼­ ¼¼ÀÌ´õ ÇÁ·Î±×·¥ ¸¸µé±â ---
+    //ì„¸ì´ë” ì½ì–´ì™€ì„œ ì„¸ì´ë” í”„ë¡œê·¸ë¨ ë§Œë“¤ê¸° 
     make_vertexShaders();
     make_fragmentShaders();
 
-    // ------ Ãß°¡ ----------
+    // ------ ì¶”ê°€ ----------
     glewInit();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
-    setupCubeVAOs(); // Å¥ºê ±×¸²
+    setupCubeVAOs(); // íë¸Œ ê·¸ë¦¼
 
 
 
     glutDisplayFunc(Display);
     glutReshapeFunc(Reshape);
     glutSpecialFunc(specialKeyboard);
+    glutKeyboardFunc(keyboard);
+    glutIdleFunc(idle);
     glutMainLoop();
 
     return 0;
 }
 
-GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
+GLvoid drawScene()
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -534,7 +999,7 @@ GLvoid drawScene()             //--- Äİ¹é ÇÔ¼ö: Ãâ·Â Äİ¹é ÇÔ¼ö
 
 }
 
-GLvoid Reshape(int w, int h)         //--- Äİ¹é ÇÔ¼ö: ´Ù½Ã ±×¸®±â Äİ¹é ÇÔ¼ö
+GLvoid Reshape(int w, int h)
 {
     glViewport(0, 0, w, h);
     aspect = (float)w / (float)h;
