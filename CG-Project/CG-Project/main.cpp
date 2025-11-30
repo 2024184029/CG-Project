@@ -1,8 +1,15 @@
-﻿#define _CRT_SECURE_NO_WARNINGS 
+﻿//*** 헤더파일과 라이브러리 포함시키기
+// 헤더파일 디렉토리 추가하기: 프로젝트 메뉴 -> 맨 아래에 있는 프로젝트 속성 -> VC++ 디렉토리 -> 일반의 포함 디렉토리 -> 편집으로 가서 현재 디렉토리의 include 디렉토리 추가하기
+// 라이브러리 디렉토리 추가하기: 프로젝트 메뉴 -> 맨 아래에 있는 프로젝트 속성 -> VC++ 디렉토리 -> 일반의 라이브러리 디렉토리 -> 편집으로 가서 현재 디렉토리의 lib 디렉토리 추가하기
+
+
+#define _CRT_SECURE_NO_WARNINGS 
 
 #include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
+#include <vector>
+#include <algorithm>
 #include <gl/glew.h>            
 #include <gl/freeglut.h>
 #include <gl/freeglut_ext.h> 
@@ -38,61 +45,14 @@ float aspect = 1.0f; // 종횡비
 // +++ 플레이어 위치 변수 추가 +++
 float playerX = 0.0f;
 float playerZ = -3.0f; // 초기 Z 위치 (기존 값)
-
 float moveSpeed = 0.2f; // 한 번에 이동할 거리
 //터널 z방향 이동량 (트레드밀 오프셋)
 float tunnelOffsetZ = 0.0f;
 
 //자동 이동되는 변수 추가
 bool isAutoMove = false;
-float autoMoveSpeedPerFrame = 0.08f;
-//------------------------------------------------------------
-
-float playerScale = 0.3f;  // 플레이어 큐브 크기 (기존값)
-float obstacleSize = 0.25f; // 장애물 큐브 크기   (spawnRandomObstacle에서 설정)
-
-// ================== ★★★ 장애물 관련 전역 변수 추가 ★★★ ==================
-struct Obstacle {
-    float x;       // 레인 위치 (왼/가운데/오른쪽)
-    float z;       // 터널 기준 z 파라미터 (tunnelOffsetZ와 함께 사용)
-    float size;    // 장애물 크기
-    bool  active;  // 활성화 여부
-	int lane;    // 장애물 어느 레인인지 (0: 왼쪽, 1: 가운데, 2: 오른쪽)
-};
-
-const int MAX_OBSTACLES = 50;
-Obstacle obstacles[MAX_OBSTACLES];
-
-const float OBSTACLE_Z_STRETCH = 3.f;  // 장애물을 z축으로 늘려서 길쭉하게 보이게 하는 용도
-
-// ★★★ 레인 위치 & 간격 상수 ★★★
-//좌우 부드러운 이동을 위한 변수
-bool isLeftDown = false;  // 왼쪽 키가 눌려있는가?
-bool isRightDown = false; // 오른쪽 키가 눌려있는가?
-float playerMoveSpeed = 0.05f; // 좌우 이동 속도 (이 값을 키우면 더 빠르게 움직임)
-const float PLAYER_LIMIT = 1.8f;
-
-int currentLane = 0;        // 현재 레인 번호 (-1: 왼쪽, 0: 가운데, 1: 오른쪽)
-float targetPlayerX = 0.0f; // 플레이어가 이동해야 할 목표 X 좌표
-const float LANE_WIDTH = 0.6f; // 레인 간격
-float laneSwitchSpeed = 0.04f;
-//const float OBSTACLE_SHIFT = 0.5f;   // 플레이어 레인에서 얼마나 더 바깥/안쪽으로 밀지
-
-// 레인 중심 (플레이어 + 장애물 둘 다 공통으로 사용) 
-const float LANE_POSITIONS[3] = { -LANE_WIDTH, 0.0f, LANE_WIDTH};
-// 장애물 레인 위치도 플레이어와 동일한 레인 중심 사용
-// 장애물도 레인 중심 그대로 사용
-const float OBSTACLE_LANE_POS[3] = {
-    LANE_POSITIONS[0] - 0.5,
-    LANE_POSITIONS[1],
-    LANE_POSITIONS[2]+ 0.5
-};
-// 숫자 키우면 더 넓게, 줄이면 더 촘촘하게
-const float OBSTACLE_Z_GAP = 10.0f;   // 10 정도면 점프+좌우 이동 충분히 여유
-const float OBSTACLE_SPAWN_Z = -40.0f;  // 생성될 때 화면 멀~리 앞쪽에서 등장
-
-// 얼마나 전진했을 때 새 장애물을 하나 더 만들지 체크용
-float lastSpawnOffsetZ = 0.0f;
+//float autoMoveSpeedPerFrame = 0.02f;
+float autoMoveSpeedPerFrame = 0.008f;
 
 // [로봇 애니메이션용 전역 변수 추가]
 float limbAngle = 0.0f;   // 팔다리 각도
@@ -102,9 +62,41 @@ float limbDir = 1.0f;     // 팔다리 움직임 방향
 bool isJumping = false;
 float jumpY = 0.0f;
 float jumpVelocity = 0.0f;
-const float GRAVITY = 8.f;
-const float JUMP_POWER = 4.f;
+const float GRAVITY = 0.0006f;    // 중력을 절반 정도로 낮춤 (천천히 떨어짐)
+const float JUMP_POWER = 0.045f;
 
+
+
+//좌우 부드러운 이동을 위한 변수
+bool isLeftDown = false;  // 왼쪽 키가 눌려있는가?
+bool isRightDown = false; // 오른쪽 키가 눌려있는가?
+float playerMoveSpeed = 0.05f; // 좌우 이동 속도 (이 값을 키우면 더 빠르게 움직임)
+const float PLAYER_LIMIT = 1.8f;
+
+int currentLane = 0;        // 현재 레인 번호 (-1: 왼쪽, 0: 가운데, 1: 오른쪽)
+float targetPlayerX = 0.0f; // 플레이어가 이동해야 할 목표 X 좌표
+const float LANE_WIDTH = 0.85f; // 레인 간격 (선이 0.25니까 0.5 간격이면 딱 맞습니다)
+float laneSwitchSpeed = 0.04f;
+
+//---------------------------------------------------
+//기차 관련 구조체 및 변수
+struct Train {
+    int lane;
+    float zPos;
+    int colorType;
+    bool isMoving;
+    float speed;
+    int type;
+};
+
+std::vector<Train> trains; // 기차들을 관리할 리스트
+//----------------------------------------------------------
+bool isGameStarted = false; //게임 시작 여부
+//----------------------------------------
+//슬라이딩 관련 변수
+bool isSliding = false;
+//int slideTimer = 0;//지속시간
+const int SLIDE_DURATION = 45; //슬라이딩 유지 시간
 
 // ------- 육면체 정점 -------------------------------------------
 
@@ -377,300 +369,6 @@ void setupCubeVAOs()
     }
 }
 
-void drawCubeFace(int f) {
-    glBindVertexArray(vaoCube[f]);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-}
-
-// --- 추가 --- 레인 경계선 하나 그리기 (현재 model 행렬 기준)
-void drawLaneLine() {
-    glBindVertexArray(vaoLaneLine);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
-
-
-
-//====================================================================
-// ================== ★★★ 장애물 함수 구현 ★★★ ==================
-void initObstacles()
-{
-    for (int i = 0; i < MAX_OBSTACLES; ++i) {
-        obstacles[i].active = false;
-        obstacles[i].x = 0.0f;
-        obstacles[i].z = 0.0f;
-        obstacles[i].size = 0.25f; // 기본 크기
-        obstacles[i].lane = 0;   // 기본은 가운데 레인으로 초기화
-    }
-}
-// 장애물 하나를 랜덤 레인에 생성
-void spawnRandomObstacle()
-{
-    // 비활성 슬롯 찾기
-    int idx = -1;
-    for (int i = 0; i < MAX_OBSTACLES; ++i) {
-        if (!obstacles[i].active) {
-            idx = i;
-            break;
-        }
-    }
-    if (idx == -1) return; // 빈자리 없으면 생성 안 함
-
-    // 0,1,2 중 하나 (배열 인덱스)
-    int laneIndex = rand() % 3;
-    // 실제 논리 레인 번호 (-1,0,1)
-    int logicalLane = laneIndex - 1;
-
-    // 충돌 판정용 레인 번호 저장
-    obstacles[idx].lane = logicalLane;
-
-    // 그림용 x 위치 (벽 쪽으로 밀고 싶으면 OBSTACLE_SHIFT 로 조절)
-    obstacles[idx].x = OBSTACLE_LANE_POS[laneIndex];
-
-    obstacles[idx].size = obstacleSize;
-    obstacles[idx].active = true;
-
-    obstacles[idx].z = OBSTACLE_SPAWN_Z - tunnelOffsetZ;
-
-}
-
-void updateObstacles()
-{
-    // 1) 기존 장애물들 정리
-    for (int i = 0; i < MAX_OBSTACLES; ++i) {
-        if (!obstacles[i].active) continue;
-
-        // 화면에서 보이는 실제 z
-        float worldZ = obstacles[i].z + tunnelOffsetZ;
-
-        // 플레이어(대략 z = -5) 뒤로 완전히 지나가면 비활성화
-        if (worldZ > 5.0f) {
-            obstacles[i].active = false;
-        }
-    }
-
-    // 2) 자동 이동 중일 때만 새 장애물 생성
-    if (!isAutoMove) return;
-
-    // 터널이 전진한 거리 계산
-    float distanceSinceLastSpawn = tunnelOffsetZ - lastSpawnOffsetZ;
-
-    // ★★★ OBSTACLE_Z_GAP 만큼 전진할 때마다 한 개 생성 ★★★
-    // → 간격이 항상 일정하게 유지됨 (점프+좌우 이동할 시간 충분히 확보)
-    if (distanceSinceLastSpawn > OBSTACLE_Z_GAP) {
-        spawnRandomObstacle();
-        lastSpawnOffsetZ = tunnelOffsetZ;
-    }
-}
-
-// ============================================================
-
-
-
-
-
-
-
-//idle 함수 추가( 자동 이동)
-//idle 함수 (자동 이동 및 점프 물리 계산)
-//idle 함수 (자동 이동 및 점프, 레인 변경 애니메이션)
-void idle() {
-    // 0. 프레임 간 시간(dt) 계산 ---------------------------------
-    static int prevTime = glutGet(GLUT_ELAPSED_TIME);  // 처음 호출 시 초기화
-
-    int currentTime = glutGet(GLUT_ELAPSED_TIME);
-    float dt = (currentTime - prevTime) / 1000.0f;     // 밀리초 → 초 단위
-    if (dt < 0.0001f) dt = 0.0001f;                    // 너무 작은 값 방지
-    if (dt > 0.05f)   dt = 0.05f;                      // 렉 걸려도 이상하게 튀지 않게
-    prevTime = currentTime;
-
-    bool needRedisplay = false;
-
-
-
-    // 1. 자동 이동 로직 ------------------------------------------
-    if (isAutoMove) {
-        // 기존에는 frame당 autoMoveSpeedPerFrame 만큼 움직였으니까
-        // 대략 60fps 기준 속도 유지하려고 dt * 60.0f를 곱해줌
-        tunnelOffsetZ += autoMoveSpeedPerFrame * (dt * 60.0f);
-
-        updateObstacles();
-
-        // 로봇 걷기 애니메이션도 시간에 살짝 비례하게
-        limbAngle += 120.0f * limbDir * dt;   // 대략 초당 120도 정도
-        if (limbAngle > 45.0f || limbAngle < -45.0f) {
-            limbDir *= -1.0f; // 방향 전환
-        }
-
-        needRedisplay = true;
-    }
-    else {
-        // 멈춰있을 때는 차렷 자세로 복귀 (시간에 비례해서 천천히 0으로)
-        if (fabs(limbAngle) > 0.1f) {
-            limbAngle *= powf(0.5f, dt * 10.0f);  // dt에 따라 서서히 줄어듦
-            needRedisplay = true;
-        }
-    }
-
-
-
-    // 2. 점프 물리 로직 (시간 기반) -------------------------------
-    if (isJumping) {
-        // 중력 방향으로 속도 감소 (v = v - g * dt)
-        jumpVelocity -= GRAVITY * dt;
-
-        // 위치는 속도에 따라 변화 (y = y + v * dt)
-        jumpY += jumpVelocity * dt;
-
-        // 바닥에 닿았는지 확인
-        if (jumpY <= 0.0f) {
-            jumpY = 0.0f;
-            isJumping = false;
-            jumpVelocity = 0.0f;
-        }
-
-        needRedisplay = true;
-    }
-
-
-
-    // 3. 레인 변경 애니메이션 (좌우 이동) -------------------------
-    if (fabs(playerX - targetPlayerX) > 0.001f) {
-        // laneSwitchSpeed를 "초당 이동량"처럼 쓰기 위해 dt를 곱해줌
-        float dir = (playerX < targetPlayerX) ? 1.0f : -1.0f;
-        playerX += dir * laneSwitchSpeed * (dt * 60.0f);
-
-        // 목표를 살짝 넘으면 딱 맞춰주기
-        if ((dir > 0.0f && playerX > targetPlayerX) ||
-            (dir < 0.0f && playerX < targetPlayerX)) {
-            playerX = targetPlayerX;
-        }
-
-        needRedisplay = true;
-    }
-
-
-
-    // 4. 화면 갱신 요청 ------------------------------------------
-    if (needRedisplay) {
-        glutPostRedisplay();
-    }
-}
-
-
-// ----------------- 일반 키보드 입력 (스페이스바 등) ---------------------
-void keyboard(unsigned char key, int x, int y)
-{
-    switch (key)
-    {
-    case 32: // Spacebar ASCII code
-        if (!isJumping) // 이미 점프 중이 아닐 때만 점프 가능
-        {
-            isJumping = true;
-            jumpVelocity = JUMP_POWER; // 위로 솟구치는 힘 부여
-        }
-        break;
-
-        // 나중에 'q'를 눌러 종료하는 기능 등을 여기에 추가할 수 있습니다.
-    case 'q':
-    case 'Q':
-    case 27: // ESC key
-        exit(0);
-        break;
-    }
-}
-
-// ----------------- 키보드 입력 ---------------------
-// +++ 키보드 콜백 함수 추가 +++
-void specialKeyboard(int key, int x, int y)
-{
-    switch (key)
-    {
-        case GLUT_KEY_UP: // 'Page Up' 키
-            isAutoMove = !isAutoMove; // 자동 이동 플래그를 끄거나 켬 (토글)
-            break;
-        case GLUT_KEY_DOWN: // 'DOWN' 화살표 키
-            //playerZ += moveSpeed; // Z축 양의 방향(뒤로)으로 이동
-            //break;
-            tunnelOffsetZ -= moveSpeed;   // 터널을 뒤로 밀어냄 -> 뒤로 가는 느낌
-            break;
-        case GLUT_KEY_LEFT:
-        {
-            // 왼쪽 끝(-1)이 아닐 때만 왼쪽으로 한 칸 이동 명령
-            if (currentLane > -1) {
-                currentLane--; // -1 감소
-                targetPlayerX = currentLane * LANE_WIDTH; // 목표 위치 재설정 (-0.5 or 0.0)
-            }
-            break;
-            //=======================================================
-            float nextX = playerX - moveSpeed;
-
-            bool blocked = false;
-
-            for (int i = 0; i < MAX_OBSTACLES; ++i) {
-                if (!obstacles[i].active) continue;
-
-                float worldZ = obstacles[i].z + tunnelOffsetZ;
-
-                // 플레이어 Z 근처에 있는 장애물만 검사
-                if (fabs(worldZ - (-5.0f)) < (playerScale + obstacles[i].size)) {
-
-                    // X 충돌 범위 검사 (좌우 겹치면 충돌)
-                    if (fabs(nextX - obstacles[i].x) < (playerScale + obstacles[i].size)) {
-                        blocked = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!blocked) {
-                playerX = nextX;
-            }
-            break;
-        //=========================================================
-
-        }
-
-    case GLUT_KEY_RIGHT:
-    {
-            // 오른쪽 끝(1)이 아닐 때만 오른쪽으로 한 칸 이동 명령
-            if (currentLane < 1) {
-                currentLane++; // +1 증가
-                targetPlayerX = currentLane * LANE_WIDTH; // 목표 위치 재설정 (0.0 or 0.5)
-            }
-            break;
-            //===============================================
-            float nextX = playerX + moveSpeed;
-
-            bool blocked = false;
-
-            for (int i = 0; i < MAX_OBSTACLES; ++i) {
-                if (!obstacles[i].active) continue;
-
-                float worldZ = obstacles[i].z + tunnelOffsetZ;
-
-                if (fabs(worldZ - (-5.0f)) < (playerScale + obstacles[i].size)) {
-
-                    if (fabs(nextX - obstacles[i].x) < (playerScale + obstacles[i].size)) {
-                        blocked = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!blocked) {
-                playerX = nextX;
-            }
-            break;
-            //==========================================================
-
-        }
-    }
-
-    // 화면을 갱신하도록 요청
-    glutPostRedisplay();
-}
-
 // 로봇의 각 부위(큐브)를 그리는 헬퍼 함수
 void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
     // 1. 셰이더 유니폼 위치 가져오기
@@ -696,16 +394,409 @@ void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
     glUniform1i(locUseObjectColor, 0);
 }
 
-// 로봇 그리기 함수 (질문하신 코드 기반 수정)
+//=========================================================================
+//기차 초기화 함수 
+
+void initTrains() {
+    trains.clear();
+
+    float startZ = -30.0f;
+    float gapZ = 40.0f;
+    // ★ 수정: 맵 패턴을 길게 만들어서 반복되는지 모르게 함 (15 -> 50)
+    int numberOfSets = 50;
+
+    for (int i = 0; i < numberOfSets; i++) {
+        float currentZPos = startZ - (i * gapZ);
+
+        // 1줄에 1~2개 배치
+        int trainCount = (rand() % 2) + 1;
+
+        std::vector<int> lanes = { -1, 0, 1 };
+        std::random_shuffle(lanes.begin(), lanes.end());
+
+        for (int k = 0; k < trainCount; k++) {
+            Train t;
+            t.lane = lanes[k];
+            t.zPos = currentZPos;
+
+            // ★ 기차(0) vs 울타리(1) 결정 ★
+            // 같은 자리에 기차랑 울타리가 동시에 생길 수 없음 (if-else 구조라서)
+            // 25% 확률로 울타리 생성
+            if (rand() % 4 == 0) {
+                t.type = 1; // 울타리
+            }
+            else {
+                t.type = 0; // 기차
+            }
+
+            t.colorType = rand() % 5;
+            trains.push_back(t);
+        }
+    }
+}
+
+//플레이어 발 밑의 높이 계산 함수
+float getGroundHeight() {
+    float trainHeight = 0.8f;   // 기차 높이
+    float trainWidth = 0.3f;    // 기차 폭 (충돌 판정용)
+    float trainLength = 15.0f;  // 기차 길이
+
+    for (int i = 0; i < trains.size(); i++) {
+        // 1. 기차의 현재 Z 위치 계산 (플레이어 쪽으로 다가오는 것 반영)
+        float currentTrainZ = trains[i].zPos + tunnelOffsetZ;
+
+        // 2. 기차의 X 위치 계산
+        float trainX = trains[i].lane * LANE_WIDTH;
+
+        // 3. 충돌 검사 (플레이어가 기차 영역 안에 있는가?)
+        // 플레이어 Z는 -3.0f로 고정되어 있다고 가정 (전역변수 playerZ)
+
+        // Z축 판정: 기차 앞뒤 길이 안에 플레이어가 있는가?
+        bool inZ = (playerZ >= currentTrainZ - trainLength / 2.0f) &&
+            (playerZ <= currentTrainZ + trainLength / 2.0f);
+
+        // X축 판정: 플레이어가 기차 레인(좌우 폭) 안에 있는가?
+        // 플레이어 큐브 크기가 있으니 약간 여유를 둡니다 (+0.1f)
+        bool inX = (playerX >= trainX - trainWidth / 2.0f - 0.1f) &&
+            (playerX <= trainX + trainWidth / 2.0f + 0.1f);
+
+        // 플레이어가 기차 위에 있고, 플레이어 높이가 기차보다 높거나 같을 때 (뚫고 올라오지 않게)
+        if (inZ && inX && jumpY >= trainHeight - 0.1f) {
+            return trainHeight; // 여기는 바닥이 0.8층이다!
+        }
+    }
+
+    return 0.0f;
+}
+//=============================================================
+
+
+bool checkCollision() {
+    float tHeight = 0.8f;      // 기차 높이
+    float tLength = 15.0f;     // 기차 길이
+    float collisionWidth = 0.4f; // 충돌 너비
+
+    for (int i = 0; i < trains.size(); i++) {
+        // 1. 공통 위치 계산
+        float currentTrainZ = trains[i].zPos + tunnelOffsetZ;
+        float trainX = trains[i].lane * LANE_WIDTH;
+
+        // 2. [X축 검사] 레인이 다르면 충돌할 일이 없으니 바로 패스 (최적화)
+        bool inLane = abs(playerX - trainX) < collisionWidth;
+        if (!inLane) continue;
+
+
+        // ---------------------------------------------------------
+        // ★ 타입별 충돌 로직 분기 (기차 vs 장애물) ★
+        // ---------------------------------------------------------
+
+        if (trains[i].type == 0) {
+            // [TYPE 0: 기차] - 기존 로직 유지
+
+            float trainFront = currentTrainZ + (tLength / 2.0f);
+            float trainBack = currentTrainZ - (tLength / 2.0f);
+
+            // 진동 방지를 위해 앞쪽 판정을 넉넉하게 잡았던(+0.8f) 기존 코드 유지
+            bool inZ = (playerZ < trainFront + 0.8f) && (playerZ > trainBack + 0.2f);
+
+            // 점프해서 기차 위에 올라가지 못한 경우(낮을 때)만 충돌
+            bool isLow = jumpY < (tHeight - 0.1f);
+
+            if (inZ && isLow) {
+                return true; // 쾅!
+            }
+        }
+        else {
+            // [TYPE 1: 장애물(울타리)] - 새로 추가된 로직
+
+            // 장애물은 기차처럼 길지 않고 얇음 (앞뒤 폭 0.4f 정도 여유)
+            // 울타리 위치(currentTrainZ)를 기준으로 플레이어가 지나가는 중인가?
+            bool hitBarrierZ = (playerZ < currentTrainZ + 0.4f) && (playerZ > currentTrainZ - 0.4f);
+
+            if (hitBarrierZ) {
+                // 1) 슬라이딩 중이라면? -> 무사 통과 (충돌 아님)
+                if (isSliding) continue;
+
+                // 2) 점프를 아주 높게 뛰었다면? (울타리 높이 0.6 이상) -> 무사 통과
+                if (jumpY > 0.6f) continue;
+
+                // 슬라이딩도 아니고, 점프도 낮으면 -> 충돌!
+                return true;
+            }
+        }
+    }
+    return false; // 충돌 없음
+}
+
+//================================================================
+//기차 그리기 함수
+void drawTrains() {
+    float tWidth = 0.5f;
+    float tHeight = 0.8f;
+    float tLength = 15.0f;
+
+    // ★ 수정: 맵 전체 길이 재계산 (50세트 * 40간격 = 2000.0f)
+    // 이 길이만큼 정확히 뒤로 보내야 패턴이 안 깨짐
+    float loopDistance = 50 * 40.0f;
+
+    for (int i = 0; i < trains.size(); i++) {
+        float currentZ = trains[i].zPos + tunnelOffsetZ;
+
+        // 리스폰 로직 (화면 뒤로 넘어갔을 때)
+        if (currentZ > 5.0f) {
+
+            // 레인(lane)이나 타입(type)을 랜덤으로 바꾸지 마세요!
+            // 위치만 맵 길이만큼 뒤로 보냅니다.
+            trains[i].zPos -= loopDistance;
+
+            // (색깔 정도는 바꿔도 위치에 영향 없으니 OK)
+            trains[i].colorType = rand() % 5;
+
+            continue;
+        }
+
+        // --- 그리기 로직 (기존과 동일) ---
+        float x = trains[i].lane * LANE_WIDTH;
+
+        if (trains[i].type == 0) {
+            // [기차 그리기]
+            float y = -1.0f + (tHeight / 2.0f) + 0.05f;
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(x, y, currentZ));
+            model = glm::scale(model, glm::vec3(tWidth, tHeight, tLength));
+
+            glm::vec3 color;
+            switch (trains[i].colorType) {
+            case 0: color = glm::vec3(0.8f, 0.2f, 0.2f); break; // 빨강
+            case 1: color = glm::vec3(0.4f, 0.25f, 0.1f); break; // 갈색
+            case 2: color = glm::vec3(0.0f, 0.3f, 0.7f); break; // 파랑
+            case 3: color = glm::vec3(0.1f, 0.6f, 0.2f); break; // 초록
+            case 4: color = glm::vec3(0.9f, 0.6f, 0.0f); break; // 주황
+            }
+            drawColoredCube(model, color);
+        }
+        else {
+            // [울타리 그리기]
+            float barY = -1.0f + 0.7f; // 높이
+            glm::mat4 barModel = glm::mat4(1.0f);
+            barModel = glm::translate(barModel, glm::vec3(x, barY, currentZ));
+            barModel = glm::scale(barModel, glm::vec3(0.7f, 0.2f, 0.1f));
+            drawColoredCube(barModel, glm::vec3(1.0f, 0.8f, 0.0f)); // 노랑
+
+            // 다리
+            glm::mat4 lLeg = glm::mat4(1.0f);
+            lLeg = glm::translate(lLeg, glm::vec3(x - 0.3f, -1.0f + 0.35f, currentZ));
+            lLeg = glm::scale(lLeg, glm::vec3(0.1f, 0.7f, 0.1f));
+            drawColoredCube(lLeg, glm::vec3(0.3f, 0.3f, 0.3f));
+
+            glm::mat4 rLeg = glm::mat4(1.0f);
+            rLeg = glm::translate(rLeg, glm::vec3(x + 0.3f, -1.0f + 0.35f, currentZ));
+            rLeg = glm::scale(rLeg, glm::vec3(0.1f, 0.7f, 0.1f));
+            drawColoredCube(rLeg, glm::vec3(0.3f, 0.3f, 0.3f));
+        }
+    }
+}
+//=============================================================================
+
+
+void drawCubeFace(int f) {
+    glBindVertexArray(vaoCube[f]);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
+
+// --- 추가 --- 레인 경계선 하나 그리기
+void drawLaneLine() {
+    glBindVertexArray(vaoLaneLine);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+
+
+//=========================================================
+//idle 함수
+
+void idle() {
+    bool needRedisplay = false;
+
+
+    // ★ 충돌 체크 로직 수정 ★
+
+    if (isGameStarted) {
+
+        if (checkCollision()) {
+            // 충돌 상태
+            isAutoMove = false; // 멈춤
+            tunnelOffsetZ -= 0.2f;
+            //autoMoveSpeedPerFrame = 0.02f;
+            autoMoveSpeedPerFrame = 0.008f;
+            needRedisplay = true;
+        }
+        else {
+            // 충돌 상태가 아니라면? (옆으로 피했거나, 원래 안전하다면)
+            // 다시 자동으로 달리기 시작!
+            isAutoMove = true;
+        }
+    }
+
+    // 1. 자동 이동 로직
+    if (isAutoMove) {
+        tunnelOffsetZ += autoMoveSpeedPerFrame;
+
+        // 로봇 팔다리 애니메이션
+        limbAngle += 2.0f * limbDir;
+        if (limbAngle > 45.0f || limbAngle < -45.0f) {
+            limbDir *= -1.0f;
+        }
+        needRedisplay = true;
+    }
+    else {
+        // 멈춰있을 때는 차렷
+        if (abs(limbAngle) > 0.1f) {
+            limbAngle *= 0.9f;
+            needRedisplay = true;
+        }
+    }
+
+    // 2. 점프 및 착지 물리 로직
+
+    // 내 발 밑의 목표 바닥 높이를 구함
+    float currentGround = getGroundHeight();
+
+    // 플레이어가 바닥보다 위에 있거나, 점프 중이라면 물리 적용
+    if (jumpY > currentGround || isJumping) {
+        jumpY += jumpVelocity;      // 위치 이동
+        jumpVelocity -= GRAVITY;    // 중력 적용
+
+        // 바닥(기차 위 혹은 땅)에 닿았는지 체크
+        if (jumpY <= currentGround) {
+            jumpY = currentGround;   // 바닥 높이에 고정
+            isJumping = false;       // 점프 끝 (땅에 닿음)
+            jumpVelocity = 0.0f;     // 속도 초기화
+        }
+        else {
+
+            isJumping = true;
+        }
+        needRedisplay = true;
+    }
+    // 기차 위에 있다가 기차가 지나가버려서 허공이 된 경우 처리
+    else if (jumpY > currentGround) {
+        isJumping = true; // 다시 떨어지기 시작해야 함
+    }
+
+
+    // 3. 레인 변경 애니메이션 로직
+    if (abs(playerX - targetPlayerX) > 0.001f) {
+        if (playerX < targetPlayerX) {
+            playerX += laneSwitchSpeed;
+            if (playerX > targetPlayerX) playerX = targetPlayerX;
+        }
+        else {
+            playerX -= laneSwitchSpeed;
+            if (playerX < targetPlayerX) playerX = targetPlayerX;
+        }
+        needRedisplay = true;
+    }
+
+    if (needRedisplay) {
+        glutPostRedisplay();
+    }
+}
+
+
+// ----------------- 일반 키보드 입력  ---------------------
+void keyboard(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case 32:
+        if (!isJumping) // 이미 점프 중이 아닐 때만 점프 가능
+        {
+            isJumping = true;
+            jumpVelocity = JUMP_POWER; // 위로 솟구치는 힘 부여
+        }
+        break;
+
+        // 나중에 'q'를 눌러 종료하는 기능 등을 여기에 추가할 수 있습니다.
+    case 'q':
+    case 'Q':
+    case 27: // ESC key
+        exit(0);
+        break;
+    }
+}
+
+// ----------------- 키보드 입력 ---------------------
+// +++ 키보드 콜백 함수 추가 +++
+void specialKeyboard(int key, int x, int y)
+{
+    switch (key)
+    {
+    case GLUT_KEY_UP: // 'Page Up' 키
+        if (!isGameStarted) {
+            isGameStarted = true;
+            isAutoMove = true;
+        }
+        break;
+    case GLUT_KEY_DOWN: // 'DOWN' 화살표 키
+        if (isGameStarted) {
+            isSliding = true;
+        }
+        break;
+    case GLUT_KEY_LEFT:
+        // 왼쪽 끝(-1)이 아닐 때만 왼쪽으로 한 칸 이동 명령
+        if (currentLane > -1) {
+            currentLane--; // -1 감소
+            targetPlayerX = currentLane * LANE_WIDTH; // 목표 위치 재설정 (-0.5 or 0.0)
+        }
+        break;
+
+    case GLUT_KEY_RIGHT:
+        // 오른쪽 끝(1)이 아닐 때만 오른쪽으로 한 칸 이동 명령
+        if (currentLane < 1) {
+            currentLane++; // +1 증가
+            targetPlayerX = currentLane * LANE_WIDTH; // 목표 위치 재설정 (0.0 or 0.5)
+        }
+        break;
+
+    }
+
+
+    // 화면을 갱신하도록 요청
+    glutPostRedisplay();
+}
+
+
+void specialKeyboardUp(int key, int x, int y) {
+    switch (key) {
+    case GLUT_KEY_DOWN:
+        // 키를 떼면 슬라이딩 끝! (일어남)
+        isSliding = false;
+        break;
+    }
+}
+
+
+
+// 로봇 그리기 함수
 void drawRobot(float x, float y, float z) {
     // 로봇의 기본 위치 설정
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(x, y, z));
 
-    // 로봇이 뒤(Z-)를 보고 있으므로 180도 회전 (플레이어 시점)
-    // 필요에 따라 각도 조절: glm::radians(180.0f)
-    model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // ★ 슬라이딩 처리 ★
+    if (isSliding) {
+        // 1. 뒤로 눕기 (-90도 X축 회전)
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        // 2. 누우면 중심축이 바뀌므로 위치를 살짝 아래/뒤로 조정
+        model = glm::translate(model, glm::vec3(0.0f, -0.2f, -0.3f));
+    }
+    else {
 
+        // 로봇이 뒤(Z-)를 보고 있으므로 180도 회전 (플레이어 시점)
+        // 필요에 따라 각도 조절: glm::radians(180.0f)
+        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
     model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
 
     // 1. 몸통
@@ -751,12 +842,22 @@ void drawRobot(float x, float y, float z) {
     rLegM = glm::translate(rLegM, glm::vec3(0.0f, -0.15f, 0.0f));
     drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.3f, 0.3f, 0.3f));
 }
+
+// -----------------렌더링---------------------
+
 void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
+    //Mat4 view = identity();
+    //--- 카메라(View)와 원근(Projection) 설정 ---
+    Mat4 viewTranslate = translate(0.0f, -0.9f, -1.0f);
 
-    // --- 카메라(View)와 원근(Projection) 설정 ---
-    Mat4 view = identity();
+    // 2. 카메라 각도 회전 (X축 회전)
+    // 20도 정도 고개를 숙여서 바닥을 바라봄
+    Mat4 viewRotate = rotateX(20.0f * 3.14159f / 180.0f);
+
+    // 3. 행렬 합치기 (회전 * 이동)
+    Mat4 view = multifly(viewRotate, viewTranslate);
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
@@ -764,180 +865,87 @@ void Display() {
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
-    // 밝기 유니폼
+
+    // 밝기 유니폼 위치 한 번 구해두기 
+    // --- 터널 그리기 (큐브 벽면 반복) ---
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
 
     // --- 터널 그리기 (큐브 벽면 반복) ---
-    int   tunnelSegments = 300;
-    float tunnelScaleXY = 2.0f;                   // 터널 폭/높이 배율
-    float playerBaseY = (-0.5f * tunnelScaleXY) + 0.5f; // 바닥 기준 플레이어 베이스 Y
+    int tunnelSegments = 300; // 터널 길이
+    float tunnelScaleXY = 2.0f; // 터널 너비/높이 배율 (2배)
 
-    for (int i = 0; i < tunnelSegments; i++) {
+    for (int i = 0; i < tunnelSegments; i++)
+    {
+        // 1. Model 행렬 계산:
+
+        // 터널 크기 조절 (X: 2배, Y: 2배, Z: 1배)
+        // Z축 크기는 1.0으로 유지해야 터널 조각들이 서로 붙습니다.
         Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i + tunnelOffsetZ);
+
+        //// Z축으로 터널 조각 배치
+        //Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
+        // i번째 조각의 기본 위치 -(float)i 에 터널 이동량(tunnelOffsetZ)을 더해서
+        // 터널 전체가 앞/뒤로 밀려나게 만든다.
+        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f + tunnelOffsetZ);
+
+
+        // 크기 조절 후 이동
         Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
 
+        // 2. 셰이더에 이 큐브 조각의 Model 행렬 전송
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
+        //세그먼트마다 밝기 번갈아 주기
         float brightness = (i % 2 == 0) ? 0.4f : 1.0f;
         glUniform1f(locBrightness, brightness);
 
-        drawCubeFace(2); // 바닥
-        drawCubeFace(4); // 왼쪽
-        drawCubeFace(5); // 오른쪽
+        // 3. 큐브의 4개 벽면만 그리기
+        drawCubeFace(2); // 아랫면
+
+        drawCubeFace(4); // 왼쪽 면
+        drawCubeFace(5); // 오른쪽 면
     }
 
-    //// --- 바닥 3레인 경계선 그리기 ---
+    drawTrains();//기차 그리기
+
+
+    // +++ 플레이어 큐브 그리기 +++
+
+    // 1. Model 행렬 계산:
+
+    // [새로운 로봇 코드]
+    // Y 위치 계산 (기존 로직 유지 + 점프 적용)
+    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f; // 발바닥 위치 보정
+    float finalPlayerY = basePlayerY + jumpY;    // 0.2f는 로봇이 바닥에 박히지 않게 약간 띄움
+
+
+    drawRobot(playerX, finalPlayerY, playerZ);
+
+
+    // --- 추가 --- 3레인 스트립 그리기 ---
+       // 바닥을 3등분하는 세로 라인 2개 그리기
     {
+        // 기준 model: 단위행렬 (라인 자체가 이미 z로 길게 만들어져 있음)
         Mat4 model = identity();
 
-        // 레인 경계선은 "레인 중심"들의 중간 지점에 위치시키기
-        float leftLineX = (LANE_POSITIONS[0] + LANE_POSITIONS[1] + 0.1) * 0.5f; // 왼/중간 사이
-        float rightLineX = (LANE_POSITIONS[1] + LANE_POSITIONS[2] - 0.1) * 0.5f; // 중간/오른쪽 사이
-
+        // 1) 왼쪽 경계선
         Mat4 leftLine = model;
-        leftLine.m[12] = leftLineX;
+        leftLine.m[12] = -0.25f;          // x 이동 => 값이 작을수록 가운데 좁아짐
         glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
         drawLaneLine();
 
+        // 2) 오른쪽 경계선
         Mat4 rightLine = model;
-        rightLine.m[12] = rightLineX;
+        rightLine.m[12] = 0.25f;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
         drawLaneLine();
     }
 
-    // ================== ★ 장애물 그리기 ★ ==================
-    for (int i = 0; i < MAX_OBSTACLES; ++i) {
-        if (!obstacles[i].active) continue;
-
-        // 스폰 때 넣어 둔 z + 터널 이동량 = 장애물 기준 z
-        float worldZ = obstacles[i].z + tunnelOffsetZ;
-        float obsSize = obstacles[i].size;
-
-        // Z 방향 길이 계산 (앞/뒤 대칭일 때의 반길이)
-        float baseHalfDepth = 0.5f * obsSize;                    // 스트레치 전 반길이
-        float stretchedHalfDepth = 0.5f * obsSize * OBSTACLE_Z_STRETCH; // 스트레치 후 반길이
-
-        // "앞면 위치는 그대로 두고 뒤로만 늘리기" 위해
-        // 센터를 뒤쪽으로 delta 만큼 옮겨줌
-        float deltaCenterZ = stretchedHalfDepth - baseHalfDepth;      // 얼마나 뒤로 밀 것인지
-        float centerZ = worldZ - deltaCenterZ;                   // 실제로 그릴 때 쓸 센터 z
-
-        // 너무 멀리 있는 건 스킵 (센터 기준)
-        if (centerZ > 5.0f || centerZ < -100.0f) continue;
-
-        // Z만 길어진 직육면체
-        Mat4 modelObsScale = scale(
-            obsSize,                          // X 폭
-            obsSize,                          // Y 높이
-            obsSize * OBSTACLE_Z_STRETCH      // Z 길이
-        );
-
-        // 바닥 위로 반 높이만큼 올려서 딱 붙게
-        float halfHeightY = 0.5f * obsSize;
-        float obstacleCenterY = (-0.5f * tunnelScaleXY) + halfHeightY;
-
-        // 방금 구한 centerZ 를 사용해서 배치
-        Mat4 modelObsTranslate = translate(obstacles[i].x, obstacleCenterY, centerZ);
-        Mat4 modelObs = multifly(modelObsTranslate, modelObsScale);
-
-        glUniformMatrix4fv(locModel, 1, GL_FALSE, modelObs.m);
-        glUniform1f(locBrightness, 0.8f);
-
-        for (int f = 0; f < 6; ++f) {
-            drawCubeFace(f);
-        }
-    }
-
-    // ================== ★ 충돌 + 플랫폼 로직 ★ ==================
-        // 플레이어 월드 Z (항상 -3.0 근처)
-    float playerWorldZ = playerZ;
-
-    // 플레이어 충돌 박스 (조금 작게 잡아서 너무 일찍 멈추지 않게)
-    float playerHalfX = playerScale * 0.5f;
-    float playerHalfZ = 0.15f;           // Z 반폭 줄임
-
-    bool  onObstacle = false;         // 지금 장애물 위에 서 있는지
-    float platformJumpY = 0.0f;          // 밟고 있는 장애물의 jumpY 높이
-
-    for (int i = 0; i < MAX_OBSTACLES; ++i) {
-        if (!obstacles[i].active) continue;
-
-        // 장애물 월드 Z 위치 (큐브의 중심)
-        float worldZ = obstacles[i].z + tunnelOffsetZ;
-        float obsSize = obstacles[i].size;
-
-        // 1) 레인이 다르면 X 방향으로는 절대 부딪히지 않음
-        if (obstacles[i].lane != currentLane) continue;
-
-        // 2) 장애물 실제 모델 기준 반폭 계산
-        float halfWidthX = 0.7f * obsSize;                    // X 반폭
-        float halfDepthZ = 0.5f * obsSize * OBSTACLE_Z_STRETCH; // Z 반폭 (z로 늘어난 만큼 반영)
-
-        // 3) Z 방향(앞/뒤)으로만 겹치는지 확인
-        bool overlapZ = fabs(playerWorldZ - worldZ) < (halfDepthZ + playerHalfZ);
-        if (!overlapZ) continue;
-
-        // 4) “jumpY 기준” 장애물 윗면 높이
-        //    바닥(-1.0)에서 장애물 윗면까지 높이가 정확히 obsSize 만큼이라
-        //    jumpY가 obsSize 가 되면 장애물 위에 올라선 상태가 됨.
-        float thisPlatformJumpY = obsSize;
-
-        if (isJumping) {
-            // 점프해서 내려오는 중인데, 장애물 높이 근처에 닿으면 착지
-            if (jumpVelocity <= 0.0f &&
-                jumpY >= thisPlatformJumpY - 0.05f &&
-                jumpY <= thisPlatformJumpY + 0.05f)
-            {
-                isJumping = false;
-                jumpVelocity = 0.0f;
-                jumpY = thisPlatformJumpY;
-                onObstacle = true;
-                platformJumpY = thisPlatformJumpY;
-            }
-        }
-        else {
-            // 점프 중이 아닌 상태에서 겹친 경우
-            if (jumpY > thisPlatformJumpY * 0.8f) {
-                // 이미 위쪽에 있으면 장애물 위에 서 있는 것으로 처리
-                jumpY = thisPlatformJumpY;
-                onObstacle = true;
-                platformJumpY = thisPlatformJumpY;
-            }
-            else {
-                // 거의 바닥 높이에서 정면으로 박으면 앞으로 진행을 멈춤
-                isAutoMove = false;
-            }
-        }
-    }
-
-    // 5) 최종 jumpY 정리
-    if (onObstacle) {
-        // 장애물 위에 있을 땐 jumpY를 그 높이로 고정
-        jumpY = platformJumpY;
-    }
-    else {
-        // 어느 플랫폼 위도 아니고, 바닥보다 위에 떠 있는데
-        // 점프 상태가 아니면 자연스럽게 떨어지도록 점프 모드로 전환
-        if (!isJumping && jumpY > 0.0f) {
-            isJumping = true;
-            // 이미 위에서 떨어지는 중이라 초기 속도는 0으로 둠
-            jumpVelocity = 0.0f;
-        }
-    }
-
-    // 최종 플레이어 Y
-    float finalPlayerY = playerBaseY + jumpY + 0.05f;
-
-    // ================== ★ 플레이어 로봇 그리기 (항상 맨 위 레이어) ★
-    glDisable(GL_DEPTH_TEST);
-    drawRobot(playerX, finalPlayerY, playerZ);
-    glEnable(GL_DEPTH_TEST);
 
     glutSwapBuffers();
-   
 }
 
+//==========================================================
 int main(int argc, char** argv)
 {
 
@@ -948,7 +956,7 @@ int main(int argc, char** argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // 깊이 버퍼 추가
     glutInitWindowPosition(0, 0);
     glutInitWindowSize(800, 800);
-    glutCreateWindow("CG Project");
+    glutCreateWindow("컴그 프로젝트");
 
     //GLEW 초기화하기
     glewExperimental = GL_TRUE;
@@ -965,26 +973,28 @@ int main(int argc, char** argv)
     make_vertexShaders();
     make_fragmentShaders();
 
-    // ------ 추가 ----------
+
     glewInit();
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
     setupCubeVAOs(); // 큐브 그림
+    initTrains();
 
 
 
     glutDisplayFunc(Display);
     glutReshapeFunc(Reshape);
     glutSpecialFunc(specialKeyboard);
+    glutSpecialUpFunc(specialKeyboardUp);
     glutKeyboardFunc(keyboard);
     glutIdleFunc(idle);
     glutMainLoop();
 
     return 0;
 }
-
+//====================================================
 GLvoid drawScene()
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1004,3 +1014,7 @@ GLvoid Reshape(int w, int h)
     glViewport(0, 0, w, h);
     aspect = (float)w / (float)h;
 }
+
+
+
+
