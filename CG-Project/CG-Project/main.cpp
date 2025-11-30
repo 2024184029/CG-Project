@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include <string>
 #include <gl/glew.h>            
 #include <gl/freeglut.h>
 #include <gl/freeglut_ext.h> 
@@ -39,6 +40,11 @@ GLuint fragmentShader;
 // ------------ 전역변수 -------------
 GLuint vaoCube[6];
 GLuint vaoLaneLine;   // 바닥 레인 만들기 위한 VAO
+GLuint vaoCoin; 	 // 코인 VAO
+const int COIN_SEGMENTS = 32;
+const int COIN_VERT_COUNT = COIN_SEGMENTS + 2; // 중심 + 세그먼트 + 끝 정점
+
+float coinRotateAngle = 0.0f;   // 코인 회전 각도
 
 float aspect = 1.0f; // 종횡비
 
@@ -88,6 +94,20 @@ struct Train {
     float speed;
     int type;
 };
+
+// ======== 여기부터 추가 ========
+struct Coin {
+    int lane;       // -1, 0, 1 레인
+    float zPos;     // 기차와 같은 방식으로 z 위치
+    bool collected; // 먹었는지 여부
+};
+
+std::vector<Coin> coins; // 코인 목록
+int coinCount = 0;       // 먹은 코인 개수
+
+int gWidth = 800, gHeight = 800; // 현재 창 크기 (텍스트용)
+
+//---------------------------------------------------
 
 std::vector<Train> trains; // 기차들을 관리할 리스트
 //----------------------------------------------------------
@@ -369,6 +389,56 @@ void setupCubeVAOs()
     }
 }
 
+// ------------------------------------------------------
+void setupCoinVAO()
+{
+    // [x, y, z, r, g, b] * (COIN_VERT_COUNT)
+    GLfloat data[COIN_VERT_COUNT * 6];
+
+    int idx = 0;
+
+    // 중심점
+    data[idx++] = 0.0f; // x
+    data[idx++] = 0.0f; // y
+    data[idx++] = 0.0f; // z
+    data[idx++] = 1.0f; // r
+    data[idx++] = 1.0f; // g
+    data[idx++] = 0.0f; // b (노랑)
+
+    // 둘레 점들
+    for (int i = 0; i <= COIN_SEGMENTS; i++) {
+        float theta = (2.0f * 3.141592f * i) / COIN_SEGMENTS;
+        float x = cosf(theta);
+        float y = sinf(theta);
+
+        data[idx++] = x;
+        data[idx++] = y;
+        data[idx++] = 0.0f; // z는 0
+
+        data[idx++] = 1.0f;
+        data[idx++] = 1.0f;
+        data[idx++] = 0.0f;
+    }
+
+    GLuint vbo;
+    glGenVertexArrays(1, &vaoCoin);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vaoCoin);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
+
+    // 위치
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // 색 (사실 uObjectColor로 덮어 쓸 거지만 포맷 맞추기용)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+}
+
 // 로봇의 각 부위(큐브)를 그리는 헬퍼 함수
 void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
     // 1. 셰이더 유니폼 위치 가져오기
@@ -391,6 +461,25 @@ void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
     }
 
     // 5. 색상 모드 끄기 (터널 그릴 때 영향을 주지 않도록)
+    glUniform1i(locUseObjectColor, 0);
+}
+
+// ------------------------------------------------------
+//   원판 코인 그리기 헬퍼
+// ------------------------------------------------------
+void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
+    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
+    GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
+    GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
+
+    glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+    glUniform3f(locObjectColor, color.r, color.g, color.b);
+    glUniform1i(locUseObjectColor, 1);
+
+    glBindVertexArray(vaoCoin);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, COIN_VERT_COUNT);
+
+    glBindVertexArray(0);
     glUniform1i(locUseObjectColor, 0);
 }
 
@@ -434,6 +523,33 @@ void initTrains() {
         }
     }
 }
+
+// ======== 여기부터 추가: 코인 초기화 함수 ========
+void initCoins() {
+    coins.clear();
+
+    float startZ = -20.0f;   // 플레이어 기준 앞쪽에서 시작
+    float gapZ = 20.0f;    // 코인 세트 간격
+    int   sets = 50;       // 얼마나 멀리까지 만들지
+
+    for (int i = 0; i < sets; i++) {
+        float baseZ = startZ - i * gapZ;   // 점점 멀어지도록
+
+        int coinPerSet = rand() % 3;       // 0~2개 코인
+
+        std::vector<int> lanes = { -1, 0, 1 };
+        std::random_shuffle(lanes.begin(), lanes.end());
+
+        for (int k = 0; k < coinPerSet; k++) {
+            Coin c;
+            c.lane = lanes[k];
+            c.zPos = baseZ;
+            c.collected = false;
+            coins.push_back(c);
+        }
+    }
+}
+// ======== 코인 초기화 함수 끝 ========
 
 //플레이어 발 밑의 높이 계산 함수
 float getGroundHeight() {
@@ -528,6 +644,44 @@ bool checkCollision() {
     return false; // 충돌 없음
 }
 
+
+
+// ======== 여기부터 추가: 코인 업데이트 & 먹기 ========
+void updateCoins() {
+    float coinWidth = 0.25f;      // X축 충돌 허용 폭
+    float coinLength = 0.5f;       // Z축 충돌 허용 폭
+
+    // 기차와 똑같이 트랙 길이를 돌려주기 위해 사용
+    float loopDistance = 50.0f * 40.0f; // (train에서 numberOfSets * gapZ)
+
+    for (int i = 0; i < coins.size(); i++) {
+        // 현재 화면 기준 Z 위치
+        float currentZ = coins[i].zPos + tunnelOffsetZ;
+
+        // 화면 뒤로 지나갔으면 멀리 뒤로 보내서 재사용
+        if (currentZ > 5.0f) {
+            coins[i].zPos -= loopDistance;
+            coins[i].collected = false;
+            continue;
+        }
+
+        // 이미 먹힌 코인이면 스킵
+        if (coins[i].collected) continue;
+
+        float coinX = coins[i].lane * LANE_WIDTH;
+
+        bool inX = fabs(playerX - coinX) < coinWidth;
+        bool inZ = fabs(playerZ - currentZ) < coinLength;
+
+        if (inX && inZ) {
+            // 코인 먹음!
+            coins[i].collected = true;
+            coinCount++;
+        }
+    }
+}
+// ======== 코인 업데이트 끝 ========
+
 //================================================================
 //기차 그리기 함수
 void drawTrains() {
@@ -598,6 +752,44 @@ void drawTrains() {
 }
 //=============================================================================
 
+// ======== 여기부터: 코인 그리기 (원판 + 회전) ========
+void drawCoins() {
+    float coinRadius = 0.2f;   // 동그라미 반지름
+    float coinThickness = 0.1f;   // 두께 (얇은 원판)
+    float coinY = -1.0f + 0.5f;  // 바닥 위로 띄우는 높이
+
+    float loopDistance = 50.0f * 40.0f;
+
+    for (int i = 0; i < coins.size(); i++) {
+        float currentZ = coins[i].zPos + tunnelOffsetZ;
+
+        // 화면 뒤로 넘어가면 재배치
+        if (currentZ > 5.0f) {
+            coins[i].zPos -= loopDistance;
+            coins[i].collected = false;
+            continue;
+        }
+
+        if (coins[i].collected)
+            continue;
+
+        float x = coins[i].lane * LANE_WIDTH;
+
+        glm::mat4 m = glm::mat4(1.0f);
+        m = glm::translate(m, glm::vec3(x, coinY, currentZ));
+
+        // 코인이 세로로 서 있고, Y축 기준으로 빙글빙글
+        m = glm::rotate(m, glm::radians(coinRotateAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        // XY 평면에 만든 원판을 실제 크기로 스케일
+        m = glm::scale(m, glm::vec3(coinRadius, coinRadius, coinThickness));
+
+        // 노란 코인
+        drawCoinMesh(m, glm::vec3(1.0f, 1.0f, 0.0f));
+    }
+}
+// ======== 코인 그리기 끝 ========
+
 
 void drawCubeFace(int f) {
     glBindVertexArray(vaoCube[f]);
@@ -657,6 +849,14 @@ void idle() {
         }
     }
 
+    // --- 코인 회전 각도 업데이트 (항상 살짝씩 돈다) ---
+    coinRotateAngle += 1.0f;      // 한 프레임당 _도 씩 회전(숫자 낮출수록 느리게)
+    if (coinRotateAngle > 360.0f)
+        coinRotateAngle -= 360.0f;
+
+    needRedisplay = true; // 코인 회전 때문에 새로 그리기
+
+
     // 2. 점프 및 착지 물리 로직
 
     // 내 발 밑의 목표 바닥 높이를 구함
@@ -697,6 +897,9 @@ void idle() {
         }
         needRedisplay = true;
     }
+
+    // ======== 코인 위치/먹기 업데이트 ========
+    updateCoins();
 
     if (needRedisplay) {
         glutPostRedisplay();
@@ -845,6 +1048,42 @@ void drawRobot(float x, float y, float z) {
 
 // -----------------렌더링---------------------
 
+// --- 추가 --- 코인 개수 UI 그리기 (좌측 상단)
+void drawCoinUI() {
+    // 셰이더 잠깐 끄기
+    glUseProgram(0);
+    glDisable(GL_DEPTH_TEST);
+
+    // 2D 오쏘그래픽 투영 설정
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, gWidth, 0, gHeight, -1, 1);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    std::string text = "Coins: " + std::to_string(coinCount);
+
+    glColor3f(0.0f, 0.0f, 0.0f); // 검정색
+    glRasterPos2i(10, gHeight - 30); // 좌측 상단
+
+    for (char c : text) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+    }
+
+    // 상태 복구
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
+    glEnable(GL_DEPTH_TEST);
+    glUseProgram(shaderProgramID);
+}
+
+
 void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
@@ -907,7 +1146,7 @@ void Display() {
     }
 
     drawTrains();//기차 그리기
-
+	drawCoins(); // 코인 그리기
 
     // +++ 플레이어 큐브 그리기 +++
 
@@ -940,7 +1179,7 @@ void Display() {
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
         drawLaneLine();
     }
-
+	drawCoinUI(); // 코인 UI 그리기
 
     glutSwapBuffers();
 }
@@ -980,8 +1219,9 @@ int main(int argc, char** argv)
     shaderProgramID = createShaderProgram();
 
     setupCubeVAOs(); // 큐브 그림
+    setupCoinVAO();  // 코인 원판 VAO 설정
     initTrains();
-
+	initCoins(); // 코인 초기화
 
 
     glutDisplayFunc(Display);
@@ -1013,6 +1253,9 @@ GLvoid Reshape(int w, int h)
 {
     glViewport(0, 0, w, h);
     aspect = (float)w / (float)h;
+
+    gWidth = w;
+    gHeight = h;
 }
 
 
