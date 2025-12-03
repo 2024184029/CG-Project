@@ -1,8 +1,3 @@
-//*** 헤더파일과 라이브러리 포함시키기
-// 헤더파일 디렉토리 추가하기: 프로젝트 메뉴 -> 맨 아래에 있는 프로젝트 속성 -> VC++ 디렉토리 -> 일반의 포함 디렉토리 -> 편집으로 가서 현재 디렉토리의 include 디렉토리 추가하기
-// 라이브러리 디렉토리 추가하기: 프로젝트 메뉴 -> 맨 아래에 있는 프로젝트 속성 -> VC++ 디렉토리 -> 일반의 라이브러리 디렉토리 -> 편집으로 가서 현재 디렉토리의 lib 디렉토리 추가하기
-
-
 #define _CRT_SECURE_NO_WARNINGS 
 
 #include <iostream>
@@ -40,13 +35,19 @@ GLuint fragmentShader;
 // ------------ 전역변수 -------------
 GLuint vaoCube[6];
 GLuint vaoLaneLine;   // 바닥 레인 만들기 위한 VAO
-GLuint vaoCoin; 	 // 코인 VAO
+GLuint vaoCoin;     // 코인 VAO
 const int COIN_SEGMENTS = 32;
 const int COIN_VERT_COUNT = COIN_SEGMENTS + 2; // 중심 + 세그먼트 + 끝 정점
 
 float coinRotateAngle = 0.0f;   // 코인 회전 각도
 
 float aspect = 1.0f; // 종횡비
+
+// [전역 변수]
+GLuint trainSideTexID;
+GLuint trainFrontTexID;
+GLuint trainTopTexID;
+
 
 // +++ 플레이어 위치 변수 추가 +++
 float playerX = 0.0f;
@@ -257,6 +258,78 @@ Mat4 translate(float tx, float ty, float tz)
 }
 
 
+//==========================================================
+
+// BMP 파일 로드 함수
+GLubyte* LoadBMP(const char* filename, int* width, int* height) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        std::cout << "이미지 파일을 찾을 수 없습니다: " << filename << std::endl;
+        return NULL;
+    }
+
+    unsigned char header[54];
+    if (fread(header, 1, 54, file) != 54) {
+        std::cout << "BMP 파일 형식이 아닙니다." << std::endl;
+        fclose(file);
+        return NULL;
+    }
+
+    if (header[0] != 'B' || header[1] != 'M') {
+        std::cout << "BMP 파일이 아닙니다." << std::endl;
+        fclose(file);
+        return NULL;
+    }
+
+    *width = *(int*)&(header[18]);
+    *height = *(int*)&(header[22]);
+    int imageSize = *(int*)&(header[34]);
+
+    if (imageSize == 0) imageSize = (*width) * (*height) * 3;
+
+    GLubyte* data = (GLubyte*)malloc(imageSize);
+    fread(data, 1, imageSize, file);
+    fclose(file);
+
+    // BMP는 BGR 순서로 저장되므로 RGB로 변환해야 함
+    for (int i = 0; i < imageSize; i += 3) {
+        unsigned char temp = data[i];
+        data[i] = data[i + 2];
+        data[i + 2] = temp;
+    }
+
+    return data;
+}
+
+// 텍스처 생성 함수
+
+void makeTexture(const char* filename, GLuint* targetID) {
+    int width, height;
+    GLubyte* data = LoadBMP(filename, &width, &height);
+
+    if (data != NULL) {
+        glGenTextures(1, targetID);            // 받아온 변수에 ID 생성
+        glBindTexture(GL_TEXTURE_2D, *targetID); // 그 ID 바인딩
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        free(data);
+        std::cout << "텍스처 로드 성공: " << filename << std::endl;
+    }
+    else {
+        std::cout << "텍스처 로드 실패: " << filename << std::endl;
+    }
+}
+//================================================================
+
 // ------ 행렬 함수 ---------------------------------
 
 // --------------- 파일 불러오기 -----------------------------------------
@@ -355,14 +428,49 @@ GLuint createShaderProgram()
 void setupCubeVAOs()
 {
     for (int f = 0; f < 6; f++) {
-        GLfloat data[4 * 6];
+        GLfloat data[4 * 8];
+
+        float maxU = 1.0f;
+
+        // [기본 텍스처 좌표] (0:좌하, 1:우하, 2:우상, 3:좌상)
+        // 기본적으로 이미지를 꽉 채워서 보여줍니다.
+        GLfloat cubeTexCoords[4][2] = {
+            {0.0f, 0.0f},
+            {maxU, 0.0f},
+            {maxU, 1.0f},
+            {0.0f, 1.0f}
+        };
+
+        // ========================================================
+        // ★ 1. 옆면 (4, 5번): 텍스처를 90도 회전 (기차 길이에 맞춤)
+        // ========================================================
+        if (f == 4 || f == 5) {
+            cubeTexCoords[0][0] = 0.0f; cubeTexCoords[0][1] = 0.0f;
+            cubeTexCoords[1][0] = 0.0f; cubeTexCoords[1][1] = 1.0f;
+            cubeTexCoords[2][0] = maxU; cubeTexCoords[2][1] = 1.0f;
+            cubeTexCoords[3][0] = maxU; cubeTexCoords[3][1] = 0.0f;
+        }
+
+        // ========================================================
+        // ★ 2. 앞면(0)과 뒷면(1): 수정됨!
+        // ========================================================
+        // 보내주신 사진(subway2.bmp)이 이미 기차 비율(5:8)에 딱 맞으므로
+        // 아까 넣었던 cropX(잘라내기) 코드를 싹 지우고 기본 좌표를 씁니다.
+        // 이렇게 해야 사진 전체가 기차 앞면에 딱 맞게 들어갑니다.
+
+        // (여기에 아무 코드도 안 넣으면 위에서 설정한 기본 좌표가 적용됩니다)
+
+
         for (int i = 0; i < 4; i++) {
             int vi = cubeFacesIndices[f][i];
-            for (int j = 0; j < 3; j++) data[i * 6 + j] = cubeVertices[vi][j];
-            for (int j = 0; j < 3; j++) data[i * 6 + 3 + j] = cubeFaceColors[f][j];
 
-            glEnableVertexAttribArray(1); // 바닥 레인용 VAO
-
+            // 위치
+            for (int j = 0; j < 3; j++) data[i * 8 + j] = cubeVertices[vi][j];
+            // 색상
+            for (int j = 0; j < 3; j++) data[i * 8 + 3 + j] = cubeFaceColors[f][j];
+            // 텍스처
+            data[i * 8 + 6] = cubeTexCoords[i][0];
+            data[i * 8 + 7] = cubeTexCoords[i][1];
         }
 
         GLuint vbo;
@@ -371,43 +479,45 @@ void setupCubeVAOs()
         glBindVertexArray(vaoCube[f]);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-
-        // ---- 2) 바닥 3등분용 세로 라인 VAO ----
-        // tunnelSegments = 20, 한 세그먼트 길이 = 1.0f 이니까 전체 길이 20.0f
-        float lineLength = 20.0f;
-
-        // 바닥 y는 -0.5 이니까 살짝만 위로 (-0.49) 띄워서 z-fighting 방지
-        GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f }; // 흰색
-
-        GLfloat lineVertices[] = {
-            // x,      y,       z,             r, g, b
-            -0.01f, -0.49f,  0.0f,            lineColor[0], lineColor[1], lineColor[2],
-             0.01f, -0.49f,  0.0f,            lineColor[0], lineColor[1], lineColor[2],
-            -0.01f, -0.49f, -lineLength,      lineColor[0], lineColor[1], lineColor[2],
-             0.01f, -0.49f, -lineLength,      lineColor[0], lineColor[1], lineColor[2],
-        };
-
-        GLuint vboLaneLine;
-        glGenVertexArrays(1, &vaoLaneLine);
-        glGenBuffers(1, &vboLaneLine);
-
-        glBindVertexArray(vaoLaneLine);
-        glBindBuffer(GL_ARRAY_BUFFER, vboLaneLine);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(lineVertices), lineVertices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        glBindVertexArray(0);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
     }
-}
 
+    // ==========================================
+    // 3. 바닥 라인 (기존 코드 유지)
+    // ==========================================
+    float lineLength = 20.0f;
+    GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f };
+
+    GLfloat lineVertices[] = {
+        -0.01f, -0.49f,  0.0f,        lineColor[0], lineColor[1], lineColor[2],  0.0f, 0.0f,
+         0.01f, -0.49f,  0.0f,        lineColor[0], lineColor[1], lineColor[2],  0.0f, 0.0f,
+        -0.01f, -0.49f, -lineLength,  lineColor[0], lineColor[1], lineColor[2],  0.0f, 0.0f,
+         0.01f, -0.49f, -lineLength,  lineColor[0], lineColor[1], lineColor[2],  0.0f, 0.0f,
+    };
+
+    GLuint vboLaneLine;
+    glGenVertexArrays(1, &vaoLaneLine);
+    glGenBuffers(1, &vboLaneLine);
+
+    glBindVertexArray(vaoLaneLine);
+    glBindBuffer(GL_ARRAY_BUFFER, vboLaneLine);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(lineVertices), lineVertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+}
 // ------------------------------------------------------
 void setupCoinVAO()
 {
@@ -571,6 +681,9 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
         drawColoredCube(m, yellow);
     }
 }
+
+
+
 
 
 //=========================================================================
@@ -834,6 +947,10 @@ void updateMagnets() {
     }
 }
 
+void drawCubeFace(int f) {
+    glBindVertexArray(vaoCube[f]);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
 
 //================================================================
 //기차 그리기 함수
@@ -841,56 +958,76 @@ void drawTrains() {
     float tWidth = 0.5f;
     float tHeight = 0.8f;
     float tLength = 15.0f;
-
-    // ★ 수정: 맵 전체 길이 재계산 (50세트 * 40간격 = 2000.0f)
-    // 이 길이만큼 정확히 뒤로 보내야 패턴이 안 깨짐
     float loopDistance = 50 * 40.0f;
+
+    GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
+    GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
+    GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
+    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
     for (int i = 0; i < trains.size(); i++) {
         float currentZ = trains[i].zPos + tunnelOffsetZ;
 
-        // 리스폰 로직 (화면 뒤로 넘어갔을 때)
         if (currentZ > 5.0f) {
-
-            // 레인(lane)이나 타입(type)을 랜덤으로 바꾸지 마세요!
-            // 위치만 맵 길이만큼 뒤로 보냅니다.
             trains[i].zPos -= loopDistance;
-
-            // (색깔 정도는 바꿔도 위치에 영향 없으니 OK)
             trains[i].colorType = rand() % 5;
-
             continue;
         }
 
-        // --- 그리기 로직 (기존과 동일) ---
         float x = trains[i].lane * LANE_WIDTH;
 
         if (trains[i].type == 0) {
             // [기차 그리기]
             float y = -1.0f + (tHeight / 2.0f) + 0.05f;
+
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(x, y, currentZ));
             model = glm::scale(model, glm::vec3(tWidth, tHeight, tLength));
 
-            glm::vec3 color;
-            switch (trains[i].colorType) {
-            case 0: color = glm::vec3(0.8f, 0.2f, 0.2f); break; // 빨강
-            case 1: color = glm::vec3(0.4f, 0.25f, 0.1f); break; // 갈색
-            case 2: color = glm::vec3(0.0f, 0.3f, 0.7f); break; // 파랑
-            case 3: color = glm::vec3(0.1f, 0.6f, 0.2f); break; // 초록
-            case 4: color = glm::vec3(0.9f, 0.6f, 0.0f); break; // 주황
-            }
-            drawColoredCube(model, color);
+            glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(model));
+
+            // 텍스처 모드 켜기
+            glUniform1i(locUseTexture, 1);
+            glUniform1i(locUseObjectColor, 0);
+
+            glActiveTexture(GL_TEXTURE0);
+
+            // -------------------------------------------------
+            // 1) 옆면 그리기 (왼쪽:4, 오른쪽:5) -> trainSideTexID
+            // -------------------------------------------------
+            glBindTexture(GL_TEXTURE_2D, trainSideTexID);
+            drawCubeFace(4);
+            drawCubeFace(5);
+
+            // -------------------------------------------------
+            // 2) 앞/뒷면 그리기 (앞:0, 뒤:1) -> trainFrontTexID
+            // -------------------------------------------------
+            glBindTexture(GL_TEXTURE_2D, trainFrontTexID);
+            drawCubeFace(0);
+            drawCubeFace(1);
+
+            // -------------------------------------------------
+            // 3) ★★★ 윗면 그리기 (천장:3) -> trainTopTexID ★★★
+            // 이 부분이 있어야 윗면에 지붕 사진이 나옵니다!
+            // -------------------------------------------------
+            glBindTexture(GL_TEXTURE_2D, trainTopTexID);
+            drawCubeFace(3);
+
+            // 4) 바닥면 (2) -> 바닥은 안 보이니까 옆면 텍스처로 대충 채움
+            glBindTexture(GL_TEXTURE_2D, trainSideTexID);
+            drawCubeFace(2);
+
+            // 텍스처 끄기
+            glUniform1i(locUseTexture, 0);
         }
         else {
-            // [울타리 그리기]
-            float barY = -1.0f + 0.7f; // 높이
+            // [장애물 그리기]
+            float barY = -1.0f + 0.7f;
             glm::mat4 barModel = glm::mat4(1.0f);
             barModel = glm::translate(barModel, glm::vec3(x, barY, currentZ));
             barModel = glm::scale(barModel, glm::vec3(0.7f, 0.2f, 0.1f));
-            drawColoredCube(barModel, glm::vec3(1.0f, 0.8f, 0.0f)); // 노랑
+            drawColoredCube(barModel, glm::vec3(1.0f, 0.8f, 0.0f));
 
-            // 다리
             glm::mat4 lLeg = glm::mat4(1.0f);
             lLeg = glm::translate(lLeg, glm::vec3(x - 0.3f, -1.0f + 0.35f, currentZ));
             lLeg = glm::scale(lLeg, glm::vec3(0.1f, 0.7f, 0.1f));
@@ -976,10 +1113,7 @@ void drawMagnets() {
 
 
 
-void drawCubeFace(int f) {
-    glBindVertexArray(vaoCube[f]);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-}
+
 
 // --- 추가 --- 레인 경계선 하나 그리기
 void drawLaneLine() {
@@ -995,7 +1129,7 @@ void drawLaneLine() {
 void idle() {
     bool needRedisplay = false;
 
-	// 지난 프레임에서 얼마나 시간이 지났는지(초) 계산 -> 자석 기능 업데이트에 사용
+    // 지난 프레임에서 얼마나 시간이 지났는지(초) 계산 -> 자석 기능 업데이트에 사용
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
     if (prevTime == 0) prevTime = currentTime;
     int elapsed = currentTime - prevTime;
@@ -1421,8 +1555,17 @@ int main(int argc, char** argv)
 
     setupCubeVAOs(); // 큐브 그림
     setupCoinVAO();  // 코인 원판 VAO 설정
+    // 1. 옆면 (subway1.bmp) -> trainSideTexID에 저장
+    makeTexture("subway1.bmp", &trainSideTexID);
+
+    // 2. 앞면 (subway2.bmp) -> trainFrontTexID에 저장
+    makeTexture("subway2.bmp", &trainFrontTexID);
+
+    // 3. 윗면 (subway3.bmp) -> trainTopTexID에 저장
+    makeTexture("subway3.bmp", &trainTopTexID);
     initTrains();
     initCoins(); // 코인 초기화
+
     initMagnets();
 
     glutDisplayFunc(Display);
