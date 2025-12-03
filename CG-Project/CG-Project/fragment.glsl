@@ -31,9 +31,9 @@ void main()
         resultColor = outColor;
     }
 
-    // 터널 밝기(uBrightness) 적용 (0보다 클 때만)
-    if (uBrightness > 0.0)
-        resultColor = resultColor * uBrightness;
+//    // 터널 밝기(uBrightness) 적용 (0보다 클 때만)
+//    if (uBrightness > 0.0)
+//        resultColor = resultColor * uBrightness;
 
     FragColor = vec4(resultColor, 1.0);
 }

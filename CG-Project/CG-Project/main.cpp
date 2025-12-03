@@ -48,6 +48,7 @@ GLuint trainSideTexID;
 GLuint trainFrontTexID;
 GLuint trainTopTexID;
 
+GLuint floorTexID;   // 선로 바닥(tile.bmp)용 텍스처
 
 // +++ 플레이어 위치 변수 추가 +++
 float playerX = 0.0f;
@@ -441,6 +442,7 @@ void setupCubeVAOs()
             {0.0f, 1.0f}
         };
 
+
         // ========================================================
         // ★ 1. 옆면 (4, 5번): 텍스처를 90도 회전 (기차 길이에 맞춤)
         // ========================================================
@@ -450,7 +452,7 @@ void setupCubeVAOs()
             cubeTexCoords[2][0] = maxU; cubeTexCoords[2][1] = 1.0f;
             cubeTexCoords[3][0] = maxU; cubeTexCoords[3][1] = 0.0f;
         }
-
+        
         // ========================================================
         // ★ 2. 앞면(0)과 뒷면(1): 수정됨!
         // ========================================================
@@ -1432,12 +1434,16 @@ void Display() {
     // 3. 행렬 합치기 (회전 * 이동)
     Mat4 view = multifly(viewRotate, viewTranslate);
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
+
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
     glUniformMatrix4fv(locView, 1, GL_FALSE, view.m);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
+    // 텍스처/색상 사용 플래그 유니폼
+    GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
+    GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
 
     // 밝기 유니폼 위치 한 번 구해두기 
     // --- 터널 그리기 (큐브 벽면 반복) ---
@@ -1449,35 +1455,34 @@ void Display() {
 
     for (int i = 0; i < tunnelSegments; i++)
     {
-        // 1. Model 행렬 계산:
-
-        // 터널 크기 조절 (X: 2배, Y: 2배, Z: 1배)
-        // Z축 크기는 1.0으로 유지해야 터널 조각들이 서로 붙습니다.
         Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-
-        //// Z축으로 터널 조각 배치
-        //Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
-        // i번째 조각의 기본 위치 -(float)i 에 터널 이동량(tunnelOffsetZ)을 더해서
-        // 터널 전체가 앞/뒤로 밀려나게 만든다.
         Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f + tunnelOffsetZ);
-
-
-        // 크기 조절 후 이동
         Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
 
-        // 2. 셰이더에 이 큐브 조각의 Model 행렬 전송
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
-        //세그먼트마다 밝기 번갈아 주기
         float brightness = (i % 2 == 0) ? 0.4f : 1.0f;
         glUniform1f(locBrightness, brightness);
 
-        // 3. 큐브의 4개 벽면만 그리기
-        drawCubeFace(2); // 아랫면
+        // ==============================
+        // 1) 선로 바닥(아랫면)에 tile.bmp 텍스처
+        // ==============================
+        glUniform1i(locUseTexture, 1);          // 텍스처 사용
+        glUniform1i(locUseObjectColor, 0);      // 색상 유니폼은 끄기
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, floorTexID);
+        drawCubeFace(2);                        // 아랫면만 텍스처로 그림
+
+        // ==============================
+        // 2) 벽면은 기존처럼 색/밝기로만
+        // ==============================
+        glUniform1i(locUseTexture, 0);          // 텍스처 꺼두기 (fragment.glsl이 색/조명 사용하게)
 
         drawCubeFace(4); // 왼쪽 면
         drawCubeFace(5); // 오른쪽 면
     }
+
 
     drawTrains();//기차 그리기
     drawCoins(); // 코인 그리기
@@ -1506,13 +1511,13 @@ void Display() {
         Mat4 leftLine = model;
         leftLine.m[12] = -0.25f;          // x 이동 => 값이 작을수록 가운데 좁아짐
         glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
-        drawLaneLine();
+        //drawLaneLine();
 
         // 2) 오른쪽 경계선
         Mat4 rightLine = model;
         rightLine.m[12] = 0.25f;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
-        drawLaneLine();
+        //drawLaneLine();
     }
     drawCoinUI(); // 코인 UI 그리기
 
@@ -1563,6 +1568,10 @@ int main(int argc, char** argv)
 
     // 3. 윗면 (subway3.bmp) -> trainTopTexID에 저장
     makeTexture("subway3.bmp", &trainTopTexID);
+
+    // 4. 선로 바닥 텍스처 (tile.bmp) -> floorTexID에 저장
+    makeTexture("tile.bmp", &floorTexID);
+
     initTrains();
     initCoins(); // 코인 초기화
 

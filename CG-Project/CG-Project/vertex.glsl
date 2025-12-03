@@ -6,6 +6,7 @@ layout (location = 2) in vec2 vTexCoord;  // 텍스처 좌표 (location 2)
 
 out vec3 outColor;
 out vec2 TexCoord;
+uniform float uTexVOffset; // <-- V 오프셋 유니폼 추가!
 
 uniform mat4 model;
 uniform mat4 view;
