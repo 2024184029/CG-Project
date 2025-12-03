@@ -37,7 +37,6 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-<<<<<<< HEAD
 // ------------ Àü¿ªº¯¼ö -------------
 GLuint vaoCube[6];
 GLuint vaoLaneLine;   // ¹Ù´Ú ·¹ÀÎ ¸¸µé±â À§ÇÑ VAO
@@ -58,8 +57,7 @@ float tunnelOffsetZ = 0.0f;
 
 //ÀÚµ¿ ÀÌµ¿µÇ´Â º¯¼ö Ãß°¡
 bool isAutoMove = false;
-//float autoMoveSpeedPerFrame = 0.02f;
-float autoMoveSpeedPerFrame = 0.008f;
+float autoMoveSpeedPerFrame = 0.02f;
 
 // [·Îº¿ ¾Ö´Ï¸ÞÀÌ¼Ç¿ë Àü¿ª º¯¼ö Ãß°¡]
 float limbAngle = 0.0f;   // ÆÈ´Ù¸® °¢µµ
@@ -96,7 +94,7 @@ struct Train {
     int type;
 };
 
-// ======== ¿©±âºÎÅÍ Ãß°¡ ========
+// ======== ÄÚÀÎ Ãß°¡ ========
 struct Coin {
     int lane;       // -1, 0, 1 ·¹ÀÎ
     float zPos;     // ±âÂ÷¿Í °°Àº ¹æ½ÄÀ¸·Î z À§Ä¡
@@ -107,6 +105,26 @@ std::vector<Coin> coins; // ÄÚÀÎ ¸ñ·Ï
 int coinCount = 0;       // ¸ÔÀº ÄÚÀÎ °³¼ö
 
 int gWidth = 800, gHeight = 800; // ÇöÀç Ã¢ Å©±â (ÅØ½ºÆ®¿ë)
+
+// ------------ ÀÚ¼®(Magnet) ¾ÆÀÌÅÛ ------------
+
+struct Magnet {
+    int lane;       // -1, 0, 1
+    float zPos;     // Æ®·¢»óÀÇ À§Ä¡
+    bool collected; // ¸Ô¾ú´ÂÁö ¿©ºÎ
+};
+
+std::vector<Magnet> magnets;
+
+// ÀÚ¼® È°¼ºÈ­ »óÅÂ
+bool  isMagnetActive = false;
+float magnetTimer = 0.0f;   // ³²Àº ½Ã°£(ÃÊ)
+const float MAGNET_DURATION = 5.0f;  // 5ÃÊ µ¿¾È À¯Áö
+
+int   prevTime = 0;                 // ÀÌÀü ÇÁ·¹ÀÓ ½Ã°£(ms)
+float deltaTime = 0.0f;             // Áö³­ ÇÁ·¹ÀÓ¿¡¼­ Áö³­ ½Ã°£(ÃÊ)
+
+
 
 //---------------------------------------------------
 
@@ -130,28 +148,6 @@ GLfloat cubeVertices[8][3] = {
    {0.7f, -0.5f, 0.5f},
    {0.7f, 0.5f,0.5f},
    {-0.7f, 0.5f, 0.5f}
-=======
-// ------------ ?„ì—­ë³€??-------------
-GLuint vaoCube[6];
-
-float aspect = 1.0f; // ì¢…íš¡ë¹?
-// +++ ?Œë ˆ?´ì–´ ?„ì¹˜ ë³€??ì¶”ê? +++
-float playerX = 0.0f;
-float playerZ = -5.0f; // ì´ˆê¸° Z ?„ì¹˜ (ê¸°ì¡´ ê°?
-float moveSpeed = 0.2f; // ??ë²ˆì— ?´ë™??ê±°ë¦¬
-
-// ------- ?¡ë©´ì²??•ì  -------------------------------------------
-
-GLfloat cubeVertices[8][3] = {
-   {-0.5f, -0.5f, -0.5f},
-   {0.5f, -0.5f, -0.5f},
-   {0.5f, 0.5f, -0.5f},
-   {-0.5f, 0.5f, -0.5f},
-   {-0.5f,-0.5f, 0.5f},
-   {0.5f, -0.5f, 0.5f},
-   {0.5f,0.5f,0.5f},
-   {-0.5f, 0.5f, 0.5f}
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
 };
 
 int cubeFacesIndices[6][4] = {
@@ -164,7 +160,6 @@ int cubeFacesIndices[6][4] = {
 };
 
 GLfloat cubeFaceColors[6][3] = {
-<<<<<<< HEAD
    {0.0f, 0.0f, 0.0f},        // 0: ¾Õ   (¾È º¸ÀÓ)
    {0.0f, 0.0f, 0.0f},        // 1: µÚ   (¾È º¸ÀÓ)
 
@@ -179,27 +174,11 @@ GLfloat cubeFaceColors[6][3] = {
 
 
 // ------- Çà·Ä °è»ê ------
-=======
-   {1.0f, 0.0f, 0.0f},
-   {0.0f, 1.0f, 0.0f},
-   {0.0f, 0.0f, 1.0f},
-   {1.0f, 1.0f, 0.0f},
-   {1.0f, 0.0f, 1.0f},
-   {0.0f, 1.0f, 1.0f},
-};
-
-
-// ------- ?‰ë ¬ ê³„ì‚° ------
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
 struct Mat4 {
     float m[16];
 };
 
-<<<<<<< HEAD
 // ´ÜÀ§Çà·Ä
-=======
-// ?¨ìœ„?‰ë ¬
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
 Mat4 identity() {
     Mat4 mat = { {
           1,0,0,0,
@@ -280,8 +259,7 @@ Mat4 translate(float tx, float ty, float tz)
 
 // ------ Çà·Ä ÇÔ¼ö ---------------------------------
 
-// --------------- ?Œì¼ ë¶ˆëŸ¬?¤ê¸° -----------------------------------------
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
+// --------------- ÆÄÀÏ ºÒ·¯¿À±â -----------------------------------------
 char* filetobuf(const char* file)
 {
     FILE* fptr;
@@ -318,11 +296,7 @@ void make_vertexShaders()
     if (!result)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-<<<<<<< HEAD
         std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆÐ\n" << errorLog << std::endl;
-=======
-        std::cerr << "ERROR: vertex shader ì»´íŒŒ???¤íŒ¨\n" << errorLog << std::endl;
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
         return;
     }
 }
@@ -342,11 +316,7 @@ void make_fragmentShaders()
     if (!result)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-<<<<<<< HEAD
         std::cerr << "ERROR: frag_shader ÄÄÆÄÀÏ ½ÇÆÐ\n" << errorLog << std::endl;
-=======
-        std::cerr << "ERROR: frag_shader ì»´íŒŒ???¤íŒ¨\n" << errorLog << std::endl;
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
         return;
     }
 }
@@ -369,11 +339,7 @@ GLuint createShaderProgram()
     glGetProgramiv(shaderID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderID, 512, NULL, errorLog);
-<<<<<<< HEAD
         std::cerr << "ERROR: shader program ¿¬°á ½ÇÆÐ\n" << errorLog << std::endl;
-=======
-        std::cerr << "ERROR: shader program ?°ê²° ?¤íŒ¨\n" << errorLog << std::endl;
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
         return false;
     }
 
@@ -384,11 +350,7 @@ GLuint createShaderProgram()
 
 
 
-<<<<<<< HEAD
 // --------- µµÇü ÃÊ±âÈ­ -----------------------------
-=======
-// --------- ?„í˜• ì´ˆê¸°??-----------------------------
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
 
 void setupCubeVAOs()
 {
@@ -399,11 +361,8 @@ void setupCubeVAOs()
             for (int j = 0; j < 3; j++) data[i * 6 + j] = cubeVertices[vi][j];
             for (int j = 0; j < 3; j++) data[i * 6 + 3 + j] = cubeFaceColors[f][j];
 
-<<<<<<< HEAD
             glEnableVertexAttribArray(1); // ¹Ù´Ú ·¹ÀÎ¿ë VAO
 
-=======
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
         }
 
         GLuint vbo;
@@ -416,7 +375,6 @@ void setupCubeVAOs()
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-<<<<<<< HEAD
 
         // ---- 2) ¹Ù´Ú 3µîºÐ¿ë ¼¼·Î ¶óÀÎ VAO ----
         // tunnelSegments = 20, ÇÑ ¼¼±×¸ÕÆ® ±æÀÌ = 1.0f ÀÌ´Ï±î ÀüÃ¼ ±æÀÌ 20.0f
@@ -447,8 +405,6 @@ void setupCubeVAOs()
         glEnableVertexAttribArray(1);
 
         glBindVertexArray(0);
-=======
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
     }
 }
 
@@ -546,6 +502,77 @@ void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
     glUniform1i(locUseObjectColor, 0);
 }
 
+// ------------------------------------------------------
+// ------------------------------------------------------
+// UÀÚ + °î¼± ÀÚ¼® ¸Þ½¬ ±×¸®±â
+// baseMatrix : ÀÚ¼® ÀüÃ¼ À§Ä¡/Å©±â
+// ------------------------------------------------------
+void drawMagnetMesh(glm::mat4 baseMatrix)
+{
+    glm::vec3 red(1.0f, 0.0f, 0.0f); // ÀÚ¼® º»Ã¼ »ö
+    glm::vec3 yellow(1.0f, 0.7f, 0.0f); // ÀÚ¼® ³ë¶õÆÁ »ö
+
+    // ÆÄ¶ó¹ÌÅÍ (ÀÚ¼® ±âº» ¸ð¾ç)
+    const float ARM_HEIGHT = 0.8f;   // ¼¼·Î ±âµÕ ³ôÀÌ
+    const float ARM_WIDTH = 0.25f;  // ¼¼·Î ±âµÕ µÎ²²
+    const float ARM_DEPTH = 0.25f;
+    const float RADIUS = 0.55f;  // U °î¼± ¹ÝÁö¸§
+    const float ARC_THICKNESS = 0.22f;  // °î¼± µÎ²²
+    const float TIP_SIZE = 0.30f;  // ³ë¶õ ÆÁ Å©±â
+
+    // 1) ¿ÞÂÊ ¼¼·Î ±âµÕ
+    {
+        glm::mat4 m = baseMatrix;
+        m = glm::translate(m, glm::vec3(-RADIUS, 0.0f + ARM_HEIGHT * 0.5f, 0.0f));
+        m = glm::scale(m, glm::vec3(ARM_WIDTH, ARM_HEIGHT, ARM_DEPTH));
+        drawColoredCube(m, red);
+    }
+
+    // 2) ¿À¸¥ÂÊ ¼¼·Î ±âµÕ
+    {
+        glm::mat4 m = baseMatrix;
+        m = glm::translate(m, glm::vec3(RADIUS, 0.0f + ARM_HEIGHT * 0.5f, 0.0f));
+        m = glm::scale(m, glm::vec3(ARM_WIDTH, ARM_HEIGHT, ARM_DEPTH));
+        drawColoredCube(m, red);
+    }
+
+    // 3) ¾Æ·¡ °î¼± ºÎºÐ (¿©·¯ °³ÀÇ ÀÛÀº Å¥ºê·Î ¹Ý¿ø ±×¸®±â)
+    {
+        const int SEG = 18;   // ¼¼±×¸ÕÆ® ¸¹À»¼ö·Ï ´õ ºÎµå·¯¿ò
+
+        for (int i = 0; i <= SEG; i++) {
+            // 0 ~ ¥ð : ¿ÞÂÊ ±âµÕ ¹Ø ¡æ ¿À¸¥ÂÊ ±âµÕ ¹ØÀ¸·Î °¡´Â ¹Ý¿ø
+            float t = glm::pi<float>() * i / SEG;
+
+            // U ÀÚ ¾Æ·¡ÂÊ °î¼± (¿ô´Â ÀÔ ¸ð¾ç)
+            float x = cosf(t) * RADIUS;       // -RADIUS ~ +RADIUS
+            float y = -sinf(t) * RADIUS;      // ³¡Á¡ y = 0, °¡¿îµ¥ y = -RADIUS
+
+            glm::mat4 m = baseMatrix;
+            m = glm::translate(m, glm::vec3(x, y, 0.0f));
+            m = glm::scale(m, glm::vec3(ARC_THICKNESS, ARC_THICKNESS, ARM_DEPTH));
+            drawColoredCube(m, red);
+        }
+    }
+
+
+    // 4) À§ÂÊ ³ë¶õ ÆÁ (¾çÂÊ ³¡¸¸)
+    {
+        // ¿ÞÂÊ ÆÁ
+        glm::mat4 m = baseMatrix;
+        m = glm::translate(m, glm::vec3(-RADIUS, ARM_HEIGHT + TIP_SIZE * 0.3f, 0.0f));
+        m = glm::scale(m, glm::vec3(TIP_SIZE, TIP_SIZE, TIP_SIZE));
+        drawColoredCube(m, yellow);
+
+        // ¿À¸¥ÂÊ ÆÁ
+        m = baseMatrix;
+        m = glm::translate(m, glm::vec3(RADIUS, ARM_HEIGHT + TIP_SIZE * 0.3f, 0.0f));
+        m = glm::scale(m, glm::vec3(TIP_SIZE, TIP_SIZE, TIP_SIZE));
+        drawColoredCube(m, yellow);
+    }
+}
+
+
 //=========================================================================
 //±âÂ÷ ÃÊ±âÈ­ ÇÔ¼ö 
 
@@ -591,28 +618,48 @@ void initTrains() {
 void initCoins() {
     coins.clear();
 
-    float startZ = -20.0f;   // ÇÃ·¹ÀÌ¾î ±âÁØ ¾ÕÂÊ¿¡¼­ ½ÃÀÛ
-    float gapZ = 20.0f;    // ÄÚÀÎ ¼¼Æ® °£°Ý
-    int   sets = 50;       // ¾ó¸¶³ª ¸Ö¸®±îÁö ¸¸µéÁö
+    // ÇÃ·¹ÀÌ¾î ±âÁØ ¾ÕÂÊ¿¡¼­ ½ÃÀÛ
+    float startZ = -20.0f;
+    float groupGap = 10.0f;    // ÄÚÀÎ ±×·ì °£ Z °£°Ý
+    int   groups = 60;       // ¾ó¸¶³ª ¸Ö¸®±îÁö ¸¸µéÁö
 
-    for (int i = 0; i < sets; i++) {
-        float baseZ = startZ - i * gapZ;   // Á¡Á¡ ¸Ö¾îÁöµµ·Ï
+    for (int g = 0; g < groups; g++) {
+        // ÀÌ ±×·ì¿¡¼­ »ç¿ëÇÒ ·¹ÀÎ ÇÏ³ª ¼±ÅÃ (-1, 0, 1)
+        int lane = (rand() % 3) - 1;
 
-        int coinPerSet = rand() % 3;       // 0~2°³ ÄÚÀÎ
+        // ÇÑ ±×·ì ¾È¿¡ ¸î °³ÀÇ ÄÚÀÎÀ» ÁÙÁö ·£´ý (3~5°³)
+        int coinsInGroup = 3 + rand() % 3;
 
-        std::vector<int> lanes = { -1, 0, 1 };
-        std::random_shuffle(lanes.begin(), lanes.end());
-
-        for (int k = 0; k < coinPerSet; k++) {
+        for (int i = 0; i < coinsInGroup; i++) {
             Coin c;
-            c.lane = lanes[k];
-            c.zPos = baseZ;
+            c.lane = lane;
+            // ±×·ì¸¶´Ù Z´Â ¸Ö¾îÁö°í, ±×·ì ¾È¿¡¼­´Â Á¶±Ý¾¿ ¾ÕÂÊÀ¸·Î
+            c.zPos = startZ - g * groupGap - i * 1.5f;
             c.collected = false;
             coins.push_back(c);
         }
     }
 }
-// ======== ÄÚÀÎ ÃÊ±âÈ­ ÇÔ¼ö ³¡ ========
+
+// ------------------------------------------------------
+// ÀÚ¼® ¾ÆÀÌÅÛ ÃÊ±âÈ­
+// ------------------------------------------------------
+void initMagnets() {
+    magnets.clear();
+
+    float startZ = -60.0f;   // ÇÃ·¹ÀÌ¾î ±âÁØ Á» ´õ ¾ÕÂÊ¿¡¼­ ½ÃÀÛ
+    float gapZ = 80.0f;    // ÀÚ¼® °£ °£°Ý (ÀÚÁÖ ³ª¿À¸é ÁÙÀÌ°í, µå¹°°Ô¸é ´Ã·Áµµ µÊ)
+    int   count = 10;       // ÀüÃ¼ ÀÚ¼® °³¼ö
+
+    for (int i = 0; i < count; i++) {
+        Magnet m;
+        m.lane = (rand() % 3) - 1;   // -1, 0, 1
+        m.zPos = startZ - i * gapZ;
+        m.collected = false;
+        magnets.push_back(m);
+    }
+}
+
 
 //ÇÃ·¹ÀÌ¾î ¹ß ¹ØÀÇ ³ôÀÌ °è»ê ÇÔ¼ö
 float getGroundHeight() {
@@ -711,39 +758,82 @@ bool checkCollision() {
 
 // ======== ¿©±âºÎÅÍ Ãß°¡: ÄÚÀÎ ¾÷µ¥ÀÌÆ® & ¸Ô±â ========
 void updateCoins() {
-    float coinWidth = 0.25f;      // XÃà Ãæµ¹ Çã¿ë Æø
-    float coinLength = 0.5f;       // ZÃà Ãæµ¹ Çã¿ë Æø
+    float coinWidth = 0.25f;   // ±âº» X Ãæµ¹ Æø
+    float coinLength = 0.5f;    // ±âº» Z Ãæµ¹ Æø
 
     // ±âÂ÷¿Í ¶È°°ÀÌ Æ®·¢ ±æÀÌ¸¦ µ¹·ÁÁÖ±â À§ÇØ »ç¿ë
     float loopDistance = 50.0f * 40.0f; // (train¿¡¼­ numberOfSets * gapZ)
 
+    // ÀÚ¼®ÀÌ È°¼ºÈ­µÇ¸é ¾à°£¸¸ ¹üÀ§¸¦ ´Ã·ÁÁØ´Ù.
+    // (¿· ·¹ÀÎ±îÁö´Â »ìÂ¦, ³Ê¹« ¸Ö¸® ÀÖ´Â °Ç ¸ÔÁö ¾Ê°Ô)
+    float extraX = 0.0f;
+    float extraZ = 0.0f;
+    if (isMagnetActive) { // ÀÚ¼® ¹üÀ§
+        extraX = 1.5f;   // ÁÂ/¿ì
+        extraZ = 1.5f;   // ¾Õ/µÚ
+    }
+
     for (int i = 0; i < coins.size(); i++) {
-        // ÇöÀç È­¸é ±âÁØ Z À§Ä¡
         float currentZ = coins[i].zPos + tunnelOffsetZ;
 
-        // È­¸é µÚ·Î Áö³ª°¬À¸¸é ¸Ö¸® µÚ·Î º¸³»¼­ Àç»ç¿ë
+        // È­¸é µÚ·Î ³Ñ¾î°£ ÄÚÀÎÀº Æ®·¢ µÚ·Î º¸³»¸é¼­ "»õ ÄÚÀÎ"À¸·Î Àç»ç¿ë
         if (currentZ > 5.0f) {
             coins[i].zPos -= loopDistance;
             coins[i].collected = false;
             continue;
         }
 
-        // ÀÌ¹Ì ¸ÔÈù ÄÚÀÎÀÌ¸é ½ºÅµ
-        if (coins[i].collected) continue;
+        // ÀÌ¹Ì ¸ÔÀº ÄÚÀÎÀº ´õ ÀÌ»ó Ã¼Å©ÇÏÁö ¾Ê´Â´Ù.
+        if (coins[i].collected)
+            continue;
 
         float coinX = coins[i].lane * LANE_WIDTH;
 
-        bool inX = fabs(playerX - coinX) < coinWidth;
-        bool inZ = fabs(playerZ - currentZ) < coinLength;
+        bool inX = fabs(playerX - coinX) < (coinWidth + extraX);
+        bool inZ = fabs(playerZ - currentZ) < (coinLength + extraZ);
 
         if (inX && inZ) {
-            // ÄÚÀÎ ¸ÔÀ½!
+            // ¿©±â¼­ ´Ü ÇÑ ¹ø¸¸ collected -> true ·Î ¹Ù²Ù°í,
+            // coinCount¸¦ +1 ÇØÁØ´Ù.
             coins[i].collected = true;
             coinCount++;
         }
     }
 }
-// ======== ÄÚÀÎ ¾÷µ¥ÀÌÆ® ³¡ ========
+// ------------------------------------------------------
+// ÀÚ¼® À§Ä¡ ¾÷µ¥ÀÌÆ® + ÇÃ·¹ÀÌ¾î°¡ ¸Ô¾ú´ÂÁö Ã¼Å©
+// ------------------------------------------------------
+void updateMagnets() {
+    float collisionWidth = 0.4f;  // X Ãæµ¹ Çã¿ë
+    float collisionLength = 0.7f;  // Z Ãæµ¹ Çã¿ë
+    float loopDistance = 50.0f * 40.0f; // Æ®·¢ ±æÀÌ (±âÂ÷¶û µ¿ÀÏ)
+
+    for (int i = 0; i < magnets.size(); i++) {
+        float currentZ = magnets[i].zPos + tunnelOffsetZ;
+
+        // È­¸é µÚ·Î ³ª°¡¸é µÚ·Î º¸³»±â
+        if (currentZ > 5.0f) {
+            magnets[i].zPos -= loopDistance;
+            magnets[i].collected = false;
+            continue;
+        }
+
+        if (magnets[i].collected) continue;
+
+        float mX = magnets[i].lane * LANE_WIDTH;
+
+        bool inX = fabs(playerX - mX) < collisionWidth;
+        bool inZ = fabs(playerZ - currentZ) < collisionLength;
+
+        if (inX && inZ) {
+            // ÀÚ¼® ¸ÔÀ½!
+            magnets[i].collected = true;
+            isMagnetActive = true;
+            magnetTimer = MAGNET_DURATION;
+        }
+    }
+}
+
 
 //================================================================
 //±âÂ÷ ±×¸®±â ÇÔ¼ö
@@ -851,7 +941,39 @@ void drawCoins() {
         drawCoinMesh(m, glm::vec3(1.0f, 1.0f, 0.0f));
     }
 }
-// ======== ÄÚÀÎ ±×¸®±â ³¡ ========
+// ------------------------------------------------------
+// ÀÚ¼® ±×¸®±â
+// ------------------------------------------------------
+void drawMagnets() {
+    float magnetY = -1.0f + 0.5f;  // ÄÚÀÎ°ú ºñ½ÁÇÑ ³ôÀÌ
+    float baseScale = 0.4f;
+
+    float loopDistance = 50.0f * 40.0f;
+
+    for (int i = 0; i < magnets.size(); i++) {
+        float currentZ = magnets[i].zPos + tunnelOffsetZ;
+
+        if (currentZ > 5.0f) {
+            magnets[i].zPos -= loopDistance;
+            magnets[i].collected = false;
+            continue;
+        }
+
+        if (magnets[i].collected) continue;
+
+        float x = magnets[i].lane * LANE_WIDTH;
+
+        glm::mat4 m = glm::mat4(1.0f);
+        m = glm::translate(m, glm::vec3(x, magnetY, currentZ));
+        m = glm::scale(m, glm::vec3(baseScale));
+
+        // »ìÂ¦ È¸Àü½ÃÅ² µðÀÚÀÎ
+        //m = glm::rotate(m, glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        drawMagnetMesh(m);
+    }
+}
+
 
 
 void drawCubeFace(int f) {
@@ -873,6 +995,12 @@ void drawLaneLine() {
 void idle() {
     bool needRedisplay = false;
 
+	// Áö³­ ÇÁ·¹ÀÓ¿¡¼­ ¾ó¸¶³ª ½Ã°£ÀÌ Áö³µ´ÂÁö(ÃÊ) °è»ê -> ÀÚ¼® ±â´É ¾÷µ¥ÀÌÆ®¿¡ »ç¿ë
+    int currentTime = glutGet(GLUT_ELAPSED_TIME);
+    if (prevTime == 0) prevTime = currentTime;
+    int elapsed = currentTime - prevTime;
+    prevTime = currentTime;
+    deltaTime = elapsed / 1000.0f;
 
     // ¡Ú Ãæµ¹ Ã¼Å© ·ÎÁ÷ ¼öÁ¤ ¡Ú
 
@@ -882,8 +1010,7 @@ void idle() {
             // Ãæµ¹ »óÅÂ
             isAutoMove = false; // ¸ØÃã
             tunnelOffsetZ -= 0.2f;
-            //autoMoveSpeedPerFrame = 0.02f;
-            autoMoveSpeedPerFrame = 0.008f;
+            autoMoveSpeedPerFrame = 0.02f;
             needRedisplay = true;
         }
         else {
@@ -963,6 +1090,16 @@ void idle() {
 
     // ======== ÄÚÀÎ À§Ä¡/¸Ô±â ¾÷µ¥ÀÌÆ® ========
     updateCoins();
+    updateMagnets();  // ÀÚ¼® ¾÷µ¥ÀÌÆ®
+
+    // --- ÀÚ¼® Å¸ÀÌ¸Ó °¨¼Ò ---
+    if (isMagnetActive) {
+        magnetTimer -= deltaTime;
+        if (magnetTimer <= 0.0f) {
+            magnetTimer = 0.0f;
+            isMagnetActive = false;
+        }
+    }
 
     if (needRedisplay) {
         glutPostRedisplay();
@@ -1208,6 +1345,23 @@ void Display() {
         drawCubeFace(5); // ¿À¸¥ÂÊ ¸é
     }
 
+    drawTrains();//±âÂ÷ ±×¸®±â
+    drawCoins(); // ÄÚÀÎ ±×¸®±â
+    drawMagnets();  // ÀÚ¼® ±×¸®±â
+
+    // +++ ÇÃ·¹ÀÌ¾î Å¥ºê ±×¸®±â +++
+
+    // 1. Model Çà·Ä °è»ê:
+
+    // [»õ·Î¿î ·Îº¿ ÄÚµå]
+    // Y À§Ä¡ °è»ê (±âÁ¸ ·ÎÁ÷ À¯Áö + Á¡ÇÁ Àû¿ë)
+    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f; // ¹ß¹Ù´Ú À§Ä¡ º¸Á¤
+    float finalPlayerY = basePlayerY + jumpY;    // 0.2f´Â ·Îº¿ÀÌ ¹Ù´Ú¿¡ ¹ÚÈ÷Áö ¾Ê°Ô ¾à°£ ¶ç¿ò
+
+
+    drawRobot(playerX, finalPlayerY, playerZ);
+
+
     // --- Ãß°¡ --- 3·¹ÀÎ ½ºÆ®¸³ ±×¸®±â ---
        // ¹Ù´ÚÀ» 3µîºÐÇÏ´Â ¼¼·Î ¶óÀÎ 2°³ ±×¸®±â
     {
@@ -1225,44 +1379,13 @@ void Display() {
         rightLine.m[12] = 0.25f;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
         drawLaneLine();
-=======
-    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
-
-
-    // --- ?°ë„ ê·¸ë¦¬ê¸?(?ë¸Œ ë²½ë©´ ë°˜ë³µ) ---
-    int tunnelSegments = 300; // ?°ë„ ê¸¸ì´
-    float tunnelScaleXY = 2.0f; // ?°ë„ ?ˆë¹„/?’ì´ ë°°ìœ¨ (2ë°?
-
-    for (int i = 0; i < tunnelSegments; i++)
-    {
-        // 1. Model ?‰ë ¬ ê³„ì‚°:
-
-        // ?°ë„ ?¬ê¸° ì¡°ì ˆ (X: 2ë°? Y: 2ë°? Z: 1ë°?
-        // Zì¶??¬ê¸°??1.0?¼ë¡œ ? ì??´ì•¼ ?°ë„ ì¡°ê°?¤ì´ ?œë¡œ ë¶™ìŠµ?ˆë‹¤.
-        Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-        // Zì¶•ìœ¼ë¡??°ë„ ì¡°ê° ë°°ì¹˜
-        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f);
-
-        // ?¬ê¸° ì¡°ì ˆ ???´ë™
-        Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
-
-        // 2. ?°ì´?”ì— ???ë¸Œ ì¡°ê°??Model ?‰ë ¬ ?„ì†¡
-        glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
-
-        // 3. ?ë¸Œ??4ê°?ë²½ë©´ë§?ê·¸ë¦¬ê¸?
-        drawCubeFace(2); // ?„ëž«ë©?
-        drawCubeFace(3); // ?—ë©´
-        drawCubeFace(4); // ?¼ìª½ ë©?
-        drawCubeFace(5); // ?¤ë¥¸ìª?ë©?
     }
-	drawCoinUI(); // ÄÚÀÎ UI ±×¸®±â
+    drawCoinUI(); // ÄÚÀÎ UI ±×¸®±â
 
     glutSwapBuffers();
 }
 
 //==========================================================
-=======
->>>>>>> 733dd3e1c4b60f2cf891ba0eab19553e4d465553
 int main(int argc, char** argv)
 {
 
@@ -1299,8 +1422,8 @@ int main(int argc, char** argv)
     setupCubeVAOs(); // Å¥ºê ±×¸²
     setupCoinVAO();  // ÄÚÀÎ ¿øÆÇ VAO ¼³Á¤
     initTrains();
-	initCoins(); // ÄÚÀÎ ÃÊ±âÈ­
-
+    initCoins(); // ÄÚÀÎ ÃÊ±âÈ­
+    initMagnets();
 
     glutDisplayFunc(Display);
     glutReshapeFunc(Reshape);
@@ -1335,7 +1458,3 @@ GLvoid Reshape(int w, int h)
     gWidth = w;
     gHeight = h;
 }
-
-
-
-
