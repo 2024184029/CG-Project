@@ -32,6 +32,8 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
+void drawWoodPlanks();    // 레일 위 목재 침목 그리기
+
 // ------------ 전역변수 -------------
 GLuint vaoCube[6];
 GLuint vaoLaneLine;   // 바닥 레인 만들기 위한 VAO
@@ -1114,7 +1116,54 @@ void drawMagnets() {
 }
 
 
+// ------------------------------------------------------
+// 레일 위 나무 침목(큐브) 그리기
+// ------------------------------------------------------
+void drawWoodPlanks()
+{
+    // 나무 색 (짙은 갈색)
+    glm::vec3 plankColor(0.45f, 0.26f, 0.09f);
 
+    // y 위치: 바닥이 대략 y = -1 근처니까 그 위로 살짝 띄워서
+    float plankY = -1.0f + 0.03f;        // 바닥 바로 위
+    float plankHeight = 0.06f;               // 두께(y)
+
+    // x, z 스케일
+    //  - x : 레인 안을 가로질러서 (침목이 레인 가로로 놓이는 느낌)
+    //  - z : 진행 방향으로는 짧게
+    float plankWidth = LANE_WIDTH * 0.6f;   // x 방향 길이 (레인 거의 꽉 차게)
+    float plankDepth = 0.25f;               // z 방향 길이 (앞뒤 길이)
+
+    // Z 방향 간격 (얼마나 띄엄띄엄 놓을지)
+    float plankGapZ = 1.52f;                // 값 줄이면 촘촘, 키우면 듬성듬성
+
+    // 어디서부터 어디까지 깔지 (플레이어 기준)
+    float startZ = -1.0f;   // 플레이어보다 약간 앞부터
+    float endZ = -300.0f; // 터널 끝 쪽까지
+
+    for (float localZ = startZ; localZ > endZ; localZ -= plankGapZ)
+    {
+        // tunnelOffsetZ 를 더해서 실제 화면상의 위치로
+        float z = localZ + tunnelOffsetZ;
+
+        // 너무 뒤/앞은 안 그리기 (성능 + 필요 없는 부분 제거)
+        if (z > 5.0f)   continue;
+        if (z < -250.0f) continue;
+
+        // 3개 레인(-1, 0, 1)에 각각 침목 하나씩
+        for (int lane = -1; lane <= 1; lane++)
+        {
+            float x = lane * LANE_WIDTH;
+
+            glm::mat4 m = glm::mat4(1.0f);
+            m = glm::translate(m, glm::vec3(x, plankY, z));
+            m = glm::scale(m, glm::vec3(plankWidth, plankHeight, plankDepth));
+
+            // 실제로는 얇게 납작한 “큐브”를 그리는 것
+            drawColoredCube(m, plankColor);
+        }
+    }
+}
 
 
 // --- 추가 --- 레인 경계선 하나 그리기
@@ -1483,6 +1532,8 @@ void Display() {
         drawCubeFace(5); // 오른쪽 면
     }
 
+    // ★ 터널 바닥 위에 침목 먼저 깔기
+    drawWoodPlanks();
 
     drawTrains();//기차 그리기
     drawCoins(); // 코인 그리기
