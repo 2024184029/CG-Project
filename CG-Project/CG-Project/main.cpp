@@ -15,7 +15,8 @@
 #include <gl/glm/glm.hpp>
 #include <gl/glm/ext.hpp>
 #include <gl/glm/gtc/matrix_transform.hpp>
-
+// 시작 화면 추가
+#include "title.h"
 
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "glew32.lib")
@@ -118,7 +119,7 @@ struct Coin {
 std::vector<Coin> coins; // 코인 목록
 int coinCount = 0;       // 먹은 코인 개수
 
-int gWidth = 800, gHeight = 800; // 현재 창 크기 (텍스트용)
+int gWidth = 800, gHeight = 600; // 현재 창 크기 (텍스트용)
 
 // ------------ 자석(Magnet) 아이템 ------------
 
@@ -689,6 +690,8 @@ void setupCoinVAO()
 
     glBindVertexArray(0);
 }
+
+
 
 
 // 로봇의 각 부위(큐브)를 그리는 헬퍼 함수
@@ -1499,6 +1502,16 @@ void specialKeyboardUp(int key, int x, int y) {
     }
 }
 
+void mouse(int button, int state, int x, int y)
+{
+    if (!gIsGameStarted && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+    {
+        if (Title_IsInsideButton(x, y))
+            gIsGameStarted = true;
+    }
+}
+
+
 
 
 // 로봇 그리기 함수
@@ -1605,6 +1618,13 @@ void drawCoinUI() {
 
 
 void Display() {
+
+    if (!gIsGameStarted) {
+        Title_Render();
+        glutSwapBuffers();
+        return;
+    }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
     //Mat4 view = identity();
@@ -1634,7 +1654,7 @@ void Display() {
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
 
     // --- 터널 그리기 (큐브 벽면 반복) ---
-    int tunnelSegments = 300; // 터널 길이
+    int tunnelSegments = 500; // 터널 길이
     float tunnelScaleXY = 2.0f; // 터널 너비/높이 배율 (2배)
 
     for (int i = 0; i < tunnelSegments; i++)
@@ -1719,7 +1739,7 @@ int main(int argc, char** argv)
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // 깊이 버퍼 추가
     glutInitWindowPosition(0, 0);
-    glutInitWindowSize(800, 800);
+    glutInitWindowSize(800, 600);
     glutCreateWindow("컴그 프로젝트");
 
     //GLEW 초기화하기
@@ -1762,6 +1782,7 @@ int main(int argc, char** argv)
 
     initTrains();
     initCoins(); // 코인 초기화
+    Title_Init(); // 시작 화면 초기화
 
     initMagnets();
 
@@ -1770,6 +1791,7 @@ int main(int argc, char** argv)
     glutSpecialFunc(specialKeyboard);
     glutSpecialUpFunc(specialKeyboardUp);
     glutKeyboardFunc(keyboard);
+    glutMouseFunc(mouse);
     glutIdleFunc(idle);
     glutMainLoop();
 
