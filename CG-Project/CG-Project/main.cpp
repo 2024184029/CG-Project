@@ -582,23 +582,23 @@ void setupCoinVAO()
     }
     // 여기까지가 COIN_FRONT_COUNT 개
 
-    // =======================
-    // 2) 뒷면 원판 (단색 노랑)
-    // =======================
-    glm::vec3 backColor(1.0f, 0.9f, 0.0f);
+  // =======================
+// 2) 뒷면 원판 (앞면과 똑같이 텍스처 사용)
+// =======================
+    glm::vec3 backColor(1.0f, 1.0f, 1.0f);   // 색은 사실 안 써도 됨
 
     // 중심
     data[idx++] = 0.0f;
     data[idx++] = 0.0f;
     data[idx++] = backZ;
-    data[idx++] = backColor.r;
-    data[idx++] = backColor.g;
-    data[idx++] = backColor.b;
-    data[idx++] = 0.0f;   // u (사용 안 함)
-    data[idx++] = 0.0f;   // v
+    data[idx++] = 1.0f;          // r
+    data[idx++] = 1.0f;          // g
+    data[idx++] = 1.0f;          // b
+    data[idx++] = texCenterU;    // u
+    data[idx++] = texCenterV;    // v
 
-    // 둘레
-    for (int i = 0; i <= COIN_SEGMENTS; i++) {
+    // 둘레 : 앞면과 같은 텍스처 매핑 + 정점 순서만 반대로(컬링용)
+    for (int i = COIN_SEGMENTS; i >= 0; --i) {
         float theta = (2.0f * 3.141592f * i) / COIN_SEGMENTS;
         float x = cosf(theta);
         float y = sinf(theta);
@@ -606,13 +606,17 @@ void setupCoinVAO()
         data[idx++] = x;
         data[idx++] = y;
         data[idx++] = backZ;
-        data[idx++] = backColor.r;
-        data[idx++] = backColor.g;
-        data[idx++] = backColor.b;
-        data[idx++] = 0.0f; // u
-        data[idx++] = 0.0f; // v
+        data[idx++] = 1.0f;
+        data[idx++] = 1.0f;
+        data[idx++] = 1.0f;
+
+        float u = texCenterU + texRadius * x;
+        float v = texCenterV + texRadius * y;
+        data[idx++] = u;
+        data[idx++] = v;
     }
     // 여기까지가 COIN_BACK_COUNT 개 추가
+
 
     // =======================
     // 3) 옆면(원통 측면) – 삼각형 2개씩
@@ -722,33 +726,29 @@ void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
     GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
 
     glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-
     glBindVertexArray(vaoCoin);
 
     // 1) 앞면 : 텍스처 사용
     glUniform1i(locUseTexture, 1);
-    glUniform1i(locUseObjectColor, 0); // 색 대신 텍스처
+    glUniform1i(locUseObjectColor, 0); // 텍스처만 사용
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, coinTexID);   // 이미 makeTexture로 로드해둔 코인 텍스처
-
+    glBindTexture(GL_TEXTURE_2D, coinTexID);
     glDrawArrays(GL_TRIANGLE_FAN, 0, COIN_FRONT_COUNT);
 
-    // 2) 뒷면 + 옆면 : 단색 (color 인자로 받은 노랑)
+    // 2) 뒷면 : 텍스처 그대로 (정점에 u,v 넣었으니까)
+    glDrawArrays(GL_TRIANGLE_FAN, COIN_FRONT_COUNT, COIN_BACK_COUNT);
+
+    // 3) 옆면(두께) : 단색 노랑
     glUniform1i(locUseTexture, 0);
     glUniform1i(locUseObjectColor, 1);
     glUniform3f(locObjectColor, color.r, color.g, color.b);
-
-    // 뒷면
-    glDrawArrays(GL_TRIANGLE_FAN, COIN_FRONT_COUNT, COIN_BACK_COUNT);
-
-    // 옆면(원통)
-    glDrawArrays(GL_TRIANGLES, COIN_FRONT_COUNT + COIN_BACK_COUNT, COIN_SIDE_COUNT);
+    glDrawArrays(GL_TRIANGLES,
+        COIN_FRONT_COUNT + COIN_BACK_COUNT, COIN_SIDE_COUNT);
 
     glBindVertexArray(0);
-
-    // 상태 복구
-    glUniform1i(locUseObjectColor, 0);
+    glUniform1i(locUseObjectColor, 0); // 상태 원복
 }
+
 
 
 // ------------------------------------------------------
@@ -1667,11 +1667,10 @@ void Display() {
         drawCubeFace(5); // 오른쪽 면
     }
 
-    // ★ 터널 바닥 위에 침목 먼저 깔기
+    // 터널 바닥 위에 침목 먼저 깔기
     drawWoodPlanks();
-
     drawTrains();//기차 그리기
-    drawCoins(); // 코인 그리기
+    drawCoins();
     drawMagnets();  // 자석 그리기
 
     // +++ 플레이어 큐브 그리기 +++
