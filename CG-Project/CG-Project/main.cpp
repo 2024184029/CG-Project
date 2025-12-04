@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS 
+ï»¿#define _CRT_SECURE_NO_WARNINGS 
 
 #include <iostream>
 #include <stdlib.h>
@@ -32,63 +32,73 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-void drawWoodPlanks();    // ·¹ÀÏ À§ ¸ñÀç Ä§¸ñ ±×¸®±â
+void drawWoodPlanks();    // ë ˆì¼ ìœ„ ëª©ì¬ ì¹¨ëª© ê·¸ë¦¬ê¸°
+void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color);
 
-// ------------ Àü¿ªº¯¼ö -------------
+// ------------ ì „ì—­ë³€ìˆ˜ -------------
 GLuint vaoCube[6];
-GLuint vaoLaneLine;   // ¹Ù´Ú ·¹ÀÎ ¸¸µé±â À§ÇÑ VAO
-GLuint vaoCoin;     // ÄÚÀÎ VAO
+GLuint vaoLaneLine;   // ë°”ë‹¥ ë ˆì¸ ë§Œë“¤ê¸° ìœ„í•œ VAO
+
+GLuint vaoCoin;     // ì½”ì¸ VAO
 const int COIN_SEGMENTS = 32;
-const int COIN_VERT_COUNT = COIN_SEGMENTS + 2; // Áß½É + ¼¼±×¸ÕÆ® + ³¡ Á¤Á¡
+// ì•/ë’¤ ì›íŒ + ì˜†ë©´(ì‚¼ê°í˜•ë“¤) ê°œìˆ˜
+const int COIN_FRONT_COUNT = COIN_SEGMENTS + 2;      // ì•ë©´ íŒ¬
+const int COIN_BACK_COUNT = COIN_SEGMENTS + 2;      // ë’·ë©´ íŒ¬
+const int COIN_SIDE_COUNT = COIN_SEGMENTS * 6;      // ì˜†ë©´(ì„¸ê·¸ë¨¼íŠ¸ë‹¹ ì‚¼ê°í˜• 2ê°œ = ì •ì  6ê°œ)
 
-float coinRotateAngle = 0.0f;   // ÄÚÀÎ È¸Àü °¢µµ
+// ì „ì²´ ì •ì  ìˆ˜
+const int COIN_VERT_COUNT = COIN_FRONT_COUNT + COIN_BACK_COUNT + COIN_SIDE_COUNT;
 
-float aspect = 1.0f; // Á¾È¾ºñ
 
-// [Àü¿ª º¯¼ö]
+float coinRotateAngle = 0.0f;   // ì½”ì¸ íšŒì „ ê°ë„
+
+float aspect = 1.0f; // ì¢…íš¡ë¹„
+
+// [ì „ì—­ ë³€ìˆ˜]
 GLuint trainSideTexID;
 GLuint trainFrontTexID;
 GLuint trainTopTexID;
 
-GLuint floorTexID;   // ¼±·Î ¹Ù´Ú(tile.bmp)¿ë ÅØ½ºÃ³
+GLuint floorTexID;   // ì„ ë¡œ ë°”ë‹¥(tile.bmp)ìš© í…ìŠ¤ì²˜
+GLuint coinTexID;    // ì½”ì¸(coin_f.bmp) í…ìŠ¤ì²˜
 
-// +++ ÇÃ·¹ÀÌ¾î À§Ä¡ º¯¼ö Ãß°¡ +++
+// +++ í”Œë ˆì´ì–´ ìœ„ì¹˜ ë³€ìˆ˜ ì¶”ê°€ +++
 float playerX = 0.0f;
-float playerZ = -3.0f; // ÃÊ±â Z À§Ä¡ (±âÁ¸ °ª)
-float moveSpeed = 0.2f; // ÇÑ ¹ø¿¡ ÀÌµ¿ÇÒ °Å¸®
-//ÅÍ³Î z¹æÇâ ÀÌµ¿·® (Æ®·¹µå¹Ğ ¿ÀÇÁ¼Â)
+float playerZ = -3.0f; // ì´ˆê¸° Z ìœ„ì¹˜ (ê¸°ì¡´ ê°’)
+float moveSpeed = 0.2f; // í•œ ë²ˆì— ì´ë™í•  ê±°ë¦¬
+//í„°ë„ zë°©í–¥ ì´ë™ëŸ‰ (íŠ¸ë ˆë“œë°€ ì˜¤í”„ì…‹)
 float tunnelOffsetZ = 0.0f;
 
-//ÀÚµ¿ ÀÌµ¿µÇ´Â º¯¼ö Ãß°¡
+//ìë™ ì´ë™ë˜ëŠ” ë³€ìˆ˜ ì¶”ê°€
 bool isAutoMove = false;
 float autoMoveSpeedPerFrame = 0.02f;
 
-// [·Îº¿ ¾Ö´Ï¸ŞÀÌ¼Ç¿ë Àü¿ª º¯¼ö Ãß°¡]
-float limbAngle = 0.0f;   // ÆÈ´Ù¸® °¢µµ
-float limbDir = 1.0f;     // ÆÈ´Ù¸® ¿òÁ÷ÀÓ ¹æÇâ
+// [ë¡œë´‡ ì• ë‹ˆë©”ì´ì…˜ìš© ì „ì—­ ë³€ìˆ˜ ì¶”ê°€]
+float limbAngle = 0.0f;   // íŒ”ë‹¤ë¦¬ ê°ë„
+float limbDir = 1.0f;     // íŒ”ë‹¤ë¦¬ ì›€ì§ì„ ë°©í–¥
 
-//Á¡ÇÁ °ü·Ã º¯¼ö
+//ì í”„ ê´€ë ¨ ë³€ìˆ˜
 bool isJumping = false;
 float jumpY = 0.0f;
 float jumpVelocity = 0.0f;
-const float GRAVITY = 0.0006f;    // Áß·ÂÀ» Àı¹İ Á¤µµ·Î ³·Ãã (ÃµÃµÈ÷ ¶³¾îÁü)
+const float GRAVITY = 0.0006f;    // ì¤‘ë ¥ì„ ì ˆë°˜ ì •ë„ë¡œ ë‚®ì¶¤ (ì²œì²œíˆ ë–¨ì–´ì§)
 const float JUMP_POWER = 0.045f;
 
 
 
-//ÁÂ¿ì ºÎµå·¯¿î ÀÌµ¿À» À§ÇÑ º¯¼ö
-bool isLeftDown = false;  // ¿ŞÂÊ Å°°¡ ´­·ÁÀÖ´Â°¡?
-bool isRightDown = false; // ¿À¸¥ÂÊ Å°°¡ ´­·ÁÀÖ´Â°¡?
-float playerMoveSpeed = 0.05f; // ÁÂ¿ì ÀÌµ¿ ¼Óµµ (ÀÌ °ªÀ» Å°¿ì¸é ´õ ºü¸£°Ô ¿òÁ÷ÀÓ)
+//ì¢Œìš° ë¶€ë“œëŸ¬ìš´ ì´ë™ì„ ìœ„í•œ ë³€ìˆ˜
+bool isLeftDown = false;  // ì™¼ìª½ í‚¤ê°€ ëˆŒë ¤ìˆëŠ”ê°€?
+bool isRightDown = false; // ì˜¤ë¥¸ìª½ í‚¤ê°€ ëˆŒë ¤ìˆëŠ”ê°€?
+float playerMoveSpeed = 0.05f; // ì¢Œìš° ì´ë™ ì†ë„ (ì´ ê°’ì„ í‚¤ìš°ë©´ ë” ë¹ ë¥´ê²Œ ì›€ì§ì„)
 const float PLAYER_LIMIT = 1.8f;
 
-int currentLane = 0;        // ÇöÀç ·¹ÀÎ ¹øÈ£ (-1: ¿ŞÂÊ, 0: °¡¿îµ¥, 1: ¿À¸¥ÂÊ)
-float targetPlayerX = 0.0f; // ÇÃ·¹ÀÌ¾î°¡ ÀÌµ¿ÇØ¾ß ÇÒ ¸ñÇ¥ X ÁÂÇ¥
-const float LANE_WIDTH = 0.85f; // ·¹ÀÎ °£°İ (¼±ÀÌ 0.25´Ï±î 0.5 °£°İÀÌ¸é µü ¸Â½À´Ï´Ù)
+int currentLane = 0;        // í˜„ì¬ ë ˆì¸ ë²ˆí˜¸ (-1: ì™¼ìª½, 0: ê°€ìš´ë°, 1: ì˜¤ë¥¸ìª½)
+float targetPlayerX = 0.0f; // í”Œë ˆì´ì–´ê°€ ì´ë™í•´ì•¼ í•  ëª©í‘œ X ì¢Œí‘œ
+const float LANE_WIDTH = 0.85f; // ë ˆì¸ ê°„ê²© (ì„ ì´ 0.25ë‹ˆê¹Œ 0.5 ê°„ê²©ì´ë©´ ë”± ë§ìŠµë‹ˆë‹¤)
 float laneSwitchSpeed = 0.04f;
 
 //---------------------------------------------------
-//±âÂ÷ °ü·Ã ±¸Á¶Ã¼ ¹× º¯¼ö
+//ê¸°ì°¨ ê´€ë ¨ êµ¬ì¡°ì²´ ë° ë³€ìˆ˜
 struct Train {
     int lane;
     float zPos;
@@ -98,53 +108,53 @@ struct Train {
     int type;
 };
 
-// ======== ÄÚÀÎ Ãß°¡ ========
+// ======== ì½”ì¸ ì¶”ê°€ ========
 struct Coin {
-    int lane;       // -1, 0, 1 ·¹ÀÎ
-    float zPos;     // ±âÂ÷¿Í °°Àº ¹æ½ÄÀ¸·Î z À§Ä¡
-    bool collected; // ¸Ô¾ú´ÂÁö ¿©ºÎ
+    int lane;       // -1, 0, 1 ë ˆì¸
+    float zPos;     // ê¸°ì°¨ì™€ ê°™ì€ ë°©ì‹ìœ¼ë¡œ z ìœ„ì¹˜
+    bool collected; // ë¨¹ì—ˆëŠ”ì§€ ì—¬ë¶€
 };
 
-std::vector<Coin> coins; // ÄÚÀÎ ¸ñ·Ï
-int coinCount = 0;       // ¸ÔÀº ÄÚÀÎ °³¼ö
+std::vector<Coin> coins; // ì½”ì¸ ëª©ë¡
+int coinCount = 0;       // ë¨¹ì€ ì½”ì¸ ê°œìˆ˜
 
-int gWidth = 800, gHeight = 800; // ÇöÀç Ã¢ Å©±â (ÅØ½ºÆ®¿ë)
+int gWidth = 800, gHeight = 800; // í˜„ì¬ ì°½ í¬ê¸° (í…ìŠ¤íŠ¸ìš©)
 
-// ------------ ÀÚ¼®(Magnet) ¾ÆÀÌÅÛ ------------
+// ------------ ìì„(Magnet) ì•„ì´í…œ ------------
 
 struct Magnet {
     int lane;       // -1, 0, 1
-    float zPos;     // Æ®·¢»óÀÇ À§Ä¡
-    bool collected; // ¸Ô¾ú´ÂÁö ¿©ºÎ
+    float zPos;     // íŠ¸ë™ìƒì˜ ìœ„ì¹˜
+    bool collected; // ë¨¹ì—ˆëŠ”ì§€ ì—¬ë¶€
 };
 
 std::vector<Magnet> magnets;
 
-// ÀÚ¼® È°¼ºÈ­ »óÅÂ
+// ìì„ í™œì„±í™” ìƒíƒœ
 bool  isMagnetActive = false;
-float magnetTimer = 0.0f;   // ³²Àº ½Ã°£(ÃÊ)
-const float MAGNET_DURATION = 5.0f;  // 5ÃÊ µ¿¾È À¯Áö
+float magnetTimer = 0.0f;   // ë‚¨ì€ ì‹œê°„(ì´ˆ)
+const float MAGNET_DURATION = 5.0f;  // 5ì´ˆ ë™ì•ˆ ìœ ì§€
 
-int   prevTime = 0;                 // ÀÌÀü ÇÁ·¹ÀÓ ½Ã°£(ms)
-float deltaTime = 0.0f;             // Áö³­ ÇÁ·¹ÀÓ¿¡¼­ Áö³­ ½Ã°£(ÃÊ)
+int   prevTime = 0;                 // ì´ì „ í”„ë ˆì„ ì‹œê°„(ms)
+float deltaTime = 0.0f;             // ì§€ë‚œ í”„ë ˆì„ì—ì„œ ì§€ë‚œ ì‹œê°„(ì´ˆ)
 
 
 
 //---------------------------------------------------
 
-std::vector<Train> trains; // ±âÂ÷µéÀ» °ü¸®ÇÒ ¸®½ºÆ®
+std::vector<Train> trains; // ê¸°ì°¨ë“¤ì„ ê´€ë¦¬í•  ë¦¬ìŠ¤íŠ¸
 //----------------------------------------------------------
-bool isGameStarted = false; //°ÔÀÓ ½ÃÀÛ ¿©ºÎ
+bool isGameStarted = false; //ê²Œì„ ì‹œì‘ ì—¬ë¶€
 //----------------------------------------
-//½½¶óÀÌµù °ü·Ã º¯¼ö
+//ìŠ¬ë¼ì´ë”© ê´€ë ¨ ë³€ìˆ˜
 bool isSliding = false;
-//int slideTimer = 0;//Áö¼Ó½Ã°£
-const int SLIDE_DURATION = 45; //½½¶óÀÌµù À¯Áö ½Ã°£
+//int slideTimer = 0;//ì§€ì†ì‹œê°„
+const int SLIDE_DURATION = 45; //ìŠ¬ë¼ì´ë”© ìœ ì§€ ì‹œê°„
 
-// ------- À°¸éÃ¼ Á¤Á¡ -------------------------------------------
+// ------- ìœ¡ë©´ì²´ ì •ì  -------------------------------------------
 
 GLfloat cubeVertices[8][3] = {
-   {-0.7f, -0.5f, -0.5f},        // {¹Ø¸é ¹Ù´Ú, , }
+   {-0.7f, -0.5f, -0.5f},        // {ë°‘ë©´ ë°”ë‹¥, , }
    {0.7f, -0.5f, -0.5f},
    {0.7f, 0.5f, -0.5f},
    {-0.7f, 0.5f, -0.5f},
@@ -164,25 +174,25 @@ int cubeFacesIndices[6][4] = {
 };
 
 GLfloat cubeFaceColors[6][3] = {
-   {0.0f, 0.0f, 0.0f},        // 0: ¾Õ   (¾È º¸ÀÓ)
-   {0.0f, 0.0f, 0.0f},        // 1: µÚ   (¾È º¸ÀÓ)
+   {0.0f, 0.0f, 0.0f},        // 0: ì•   (ì•ˆ ë³´ì„)
+   {0.0f, 0.0f, 0.0f},        // 1: ë’¤   (ì•ˆ ë³´ì„)
 
-   {0.0f, 0.0f, 1.0f},        // 2: ¾Æ·¡  (¹Ù´Ú)
+   {0.0f, 0.0f, 1.0f},        // 2: ì•„ë˜  (ë°”ë‹¥)
 
-   {0.5f, 0.0f, 1.0f},        // 3: À§   (ÃµÀå)
+   {0.5f, 0.0f, 1.0f},        // 3: ìœ„   (ì²œì¥)
 
-   {0.2f, 0.4f, 1.0f},        // 4: ¿ŞÂÊ º®
-   {0.2f, 0.4f, 1.0f},        // 5: ¿À¸¥ÂÊ º®
+   {0.2f, 0.4f, 1.0f},        // 4: ì™¼ìª½ ë²½
+   {0.2f, 0.4f, 1.0f},        // 5: ì˜¤ë¥¸ìª½ ë²½
 };
 
 
 
-// ------- Çà·Ä °è»ê ------
+// ------- í–‰ë ¬ ê³„ì‚° ------
 struct Mat4 {
     float m[16];
 };
 
-// ´ÜÀ§Çà·Ä
+// ë‹¨ìœ„í–‰ë ¬
 Mat4 identity() {
     Mat4 mat = { {
           1,0,0,0,
@@ -239,47 +249,47 @@ Mat4 perspective(float fov, float aspect, float nearZ, float farZ) {
     return mat;
 }
 
-// --- Ãß°¡: Å©±â º¯È¯ Çà·Ä ---
+// --- ì¶”ê°€: í¬ê¸° ë³€í™˜ í–‰ë ¬ ---
 Mat4 scale(float sx, float sy, float sz)
 {
-    Mat4 m = { 0 };      // ¸ğµÎ 0À¸·Î ÃÊ±âÈ­
+    Mat4 m = { 0 };      // ëª¨ë‘ 0ìœ¼ë¡œ ì´ˆê¸°í™”
     m.m[0] = sx;       // (0,0)
     m.m[5] = sy;       // (1,1)
     m.m[10] = sz;       // (2,2)
-    m.m[15] = 1.0f;     // (3,3) µ¿Â÷ÁÂÇ¥¿ë 1
+    m.m[15] = 1.0f;     // (3,3) ë™ì°¨ì¢Œí‘œìš© 1
     return m;
 }
 
-// --- Ãß°¡: ÀÌµ¿ Çà·Ä ---
+// --- ì¶”ê°€: ì´ë™ í–‰ë ¬ ---
 Mat4 translate(float tx, float ty, float tz)
 {
-    Mat4 m = identity(); // ±âº»Àº ´ÜÀ§Çà·Ä
-    m.m[12] = tx;        // 4x4 Çà·Ä¿¡¼­ (3,0) = x ÀÌµ¿
-    m.m[13] = ty;        // (3,1) = y ÀÌµ¿
-    m.m[14] = tz;        // (3,2) = z ÀÌµ¿
+    Mat4 m = identity(); // ê¸°ë³¸ì€ ë‹¨ìœ„í–‰ë ¬
+    m.m[12] = tx;        // 4x4 í–‰ë ¬ì—ì„œ (3,0) = x ì´ë™
+    m.m[13] = ty;        // (3,1) = y ì´ë™
+    m.m[14] = tz;        // (3,2) = z ì´ë™
     return m;
 }
 
 
 //==========================================================
 
-// BMP ÆÄÀÏ ·Îµå ÇÔ¼ö
+// BMP íŒŒì¼ ë¡œë“œ í•¨ìˆ˜
 GLubyte* LoadBMP(const char* filename, int* width, int* height) {
     FILE* file = fopen(filename, "rb");
     if (!file) {
-        std::cout << "ÀÌ¹ÌÁö ÆÄÀÏÀ» Ã£À» ¼ö ¾ø½À´Ï´Ù: " << filename << std::endl;
+        std::cout << "ì´ë¯¸ì§€ íŒŒì¼ì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤: " << filename << std::endl;
         return NULL;
     }
 
     unsigned char header[54];
     if (fread(header, 1, 54, file) != 54) {
-        std::cout << "BMP ÆÄÀÏ Çü½ÄÀÌ ¾Æ´Õ´Ï´Ù." << std::endl;
+        std::cout << "BMP íŒŒì¼ í˜•ì‹ì´ ì•„ë‹™ë‹ˆë‹¤." << std::endl;
         fclose(file);
         return NULL;
     }
 
     if (header[0] != 'B' || header[1] != 'M') {
-        std::cout << "BMP ÆÄÀÏÀÌ ¾Æ´Õ´Ï´Ù." << std::endl;
+        std::cout << "BMP íŒŒì¼ì´ ì•„ë‹™ë‹ˆë‹¤." << std::endl;
         fclose(file);
         return NULL;
     }
@@ -294,7 +304,7 @@ GLubyte* LoadBMP(const char* filename, int* width, int* height) {
     fread(data, 1, imageSize, file);
     fclose(file);
 
-    // BMP´Â BGR ¼ø¼­·Î ÀúÀåµÇ¹Ç·Î RGB·Î º¯È¯ÇØ¾ß ÇÔ
+    // BMPëŠ” BGR ìˆœì„œë¡œ ì €ì¥ë˜ë¯€ë¡œ RGBë¡œ ë³€í™˜í•´ì•¼ í•¨
     for (int i = 0; i < imageSize; i += 3) {
         unsigned char temp = data[i];
         data[i] = data[i + 2];
@@ -304,15 +314,15 @@ GLubyte* LoadBMP(const char* filename, int* width, int* height) {
     return data;
 }
 
-// ÅØ½ºÃ³ »ı¼º ÇÔ¼ö
+// í…ìŠ¤ì²˜ ìƒì„± í•¨ìˆ˜
 
 void makeTexture(const char* filename, GLuint* targetID) {
     int width, height;
     GLubyte* data = LoadBMP(filename, &width, &height);
 
     if (data != NULL) {
-        glGenTextures(1, targetID);            // ¹Ş¾Æ¿Â º¯¼ö¿¡ ID »ı¼º
-        glBindTexture(GL_TEXTURE_2D, *targetID); // ±× ID ¹ÙÀÎµù
+        glGenTextures(1, targetID);            // ë°›ì•„ì˜¨ ë³€ìˆ˜ì— ID ìƒì„±
+        glBindTexture(GL_TEXTURE_2D, *targetID); // ê·¸ ID ë°”ì¸ë”©
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -325,17 +335,17 @@ void makeTexture(const char* filename, GLuint* targetID) {
         glGenerateMipmap(GL_TEXTURE_2D);
 
         free(data);
-        std::cout << "ÅØ½ºÃ³ ·Îµå ¼º°ø: " << filename << std::endl;
+        std::cout << "í…ìŠ¤ì²˜ ë¡œë“œ ì„±ê³µ: " << filename << std::endl;
     }
     else {
-        std::cout << "ÅØ½ºÃ³ ·Îµå ½ÇÆĞ: " << filename << std::endl;
+        std::cout << "í…ìŠ¤ì²˜ ë¡œë“œ ì‹¤íŒ¨: " << filename << std::endl;
     }
 }
 //================================================================
 
-// ------ Çà·Ä ÇÔ¼ö ---------------------------------
+// ------ í–‰ë ¬ í•¨ìˆ˜ ---------------------------------
 
-// --------------- ÆÄÀÏ ºÒ·¯¿À±â -----------------------------------------
+// --------------- íŒŒì¼ ë¶ˆëŸ¬ì˜¤ê¸° -----------------------------------------
 char* filetobuf(const char* file)
 {
     FILE* fptr;
@@ -372,7 +382,7 @@ void make_vertexShaders()
     if (!result)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: vertex shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -392,7 +402,7 @@ void make_fragmentShaders()
     if (!result)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: frag_shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: frag_shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 }
@@ -415,7 +425,7 @@ GLuint createShaderProgram()
     glGetProgramiv(shaderID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderID, 512, NULL, errorLog);
-        std::cerr << "ERROR: shader program ¿¬°á ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: shader program ì—°ê²° ì‹¤íŒ¨\n" << errorLog << std::endl;
         return false;
     }
 
@@ -426,7 +436,7 @@ GLuint createShaderProgram()
 
 
 
-// --------- µµÇü ÃÊ±âÈ­ -----------------------------
+// --------- ë„í˜• ì´ˆê¸°í™” -----------------------------
 
 void setupCubeVAOs()
 {
@@ -435,8 +445,8 @@ void setupCubeVAOs()
 
         float maxU = 1.0f;
 
-        // [±âº» ÅØ½ºÃ³ ÁÂÇ¥] (0:ÁÂÇÏ, 1:¿ìÇÏ, 2:¿ì»ó, 3:ÁÂ»ó)
-        // ±âº»ÀûÀ¸·Î ÀÌ¹ÌÁö¸¦ ²Ë Ã¤¿ö¼­ º¸¿©Áİ´Ï´Ù.
+        // [ê¸°ë³¸ í…ìŠ¤ì²˜ ì¢Œí‘œ] (0:ì¢Œí•˜, 1:ìš°í•˜, 2:ìš°ìƒ, 3:ì¢Œìƒ)
+        // ê¸°ë³¸ì ìœ¼ë¡œ ì´ë¯¸ì§€ë¥¼ ê½‰ ì±„ì›Œì„œ ë³´ì—¬ì¤ë‹ˆë‹¤.
         GLfloat cubeTexCoords[4][2] = {
             {0.0f, 0.0f},
             {maxU, 0.0f},
@@ -446,7 +456,7 @@ void setupCubeVAOs()
 
 
         // ========================================================
-        // ¡Ú 1. ¿·¸é (4, 5¹ø): ÅØ½ºÃ³¸¦ 90µµ È¸Àü (±âÂ÷ ±æÀÌ¿¡ ¸ÂÃã)
+        // â˜… 1. ì˜†ë©´ (4, 5ë²ˆ): í…ìŠ¤ì²˜ë¥¼ 90ë„ íšŒì „ (ê¸°ì°¨ ê¸¸ì´ì— ë§ì¶¤)
         // ========================================================
         if (f == 4 || f == 5) {
             cubeTexCoords[0][0] = 0.0f; cubeTexCoords[0][1] = 0.0f;
@@ -456,23 +466,23 @@ void setupCubeVAOs()
         }
         
         // ========================================================
-        // ¡Ú 2. ¾Õ¸é(0)°ú µŞ¸é(1): ¼öÁ¤µÊ!
+        // â˜… 2. ì•ë©´(0)ê³¼ ë’·ë©´(1): ìˆ˜ì •ë¨!
         // ========================================================
-        // º¸³»ÁÖ½Å »çÁø(subway2.bmp)ÀÌ ÀÌ¹Ì ±âÂ÷ ºñÀ²(5:8)¿¡ µü ¸ÂÀ¸¹Ç·Î
-        // ¾Æ±î ³Ö¾ú´ø cropX(Àß¶ó³»±â) ÄÚµå¸¦ ½Ï Áö¿ì°í ±âº» ÁÂÇ¥¸¦ ¾¹´Ï´Ù.
-        // ÀÌ·¸°Ô ÇØ¾ß »çÁø ÀüÃ¼°¡ ±âÂ÷ ¾Õ¸é¿¡ µü ¸Â°Ô µé¾î°©´Ï´Ù.
+        // ë³´ë‚´ì£¼ì‹  ì‚¬ì§„(subway2.bmp)ì´ ì´ë¯¸ ê¸°ì°¨ ë¹„ìœ¨(5:8)ì— ë”± ë§ìœ¼ë¯€ë¡œ
+        // ì•„ê¹Œ ë„£ì—ˆë˜ cropX(ì˜ë¼ë‚´ê¸°) ì½”ë“œë¥¼ ì‹¹ ì§€ìš°ê³  ê¸°ë³¸ ì¢Œí‘œë¥¼ ì”ë‹ˆë‹¤.
+        // ì´ë ‡ê²Œ í•´ì•¼ ì‚¬ì§„ ì „ì²´ê°€ ê¸°ì°¨ ì•ë©´ì— ë”± ë§ê²Œ ë“¤ì–´ê°‘ë‹ˆë‹¤.
 
-        // (¿©±â¿¡ ¾Æ¹« ÄÚµåµµ ¾È ³ÖÀ¸¸é À§¿¡¼­ ¼³Á¤ÇÑ ±âº» ÁÂÇ¥°¡ Àû¿ëµË´Ï´Ù)
+        // (ì—¬ê¸°ì— ì•„ë¬´ ì½”ë“œë„ ì•ˆ ë„£ìœ¼ë©´ ìœ„ì—ì„œ ì„¤ì •í•œ ê¸°ë³¸ ì¢Œí‘œê°€ ì ìš©ë©ë‹ˆë‹¤)
 
 
         for (int i = 0; i < 4; i++) {
             int vi = cubeFacesIndices[f][i];
 
-            // À§Ä¡
+            // ìœ„ì¹˜
             for (int j = 0; j < 3; j++) data[i * 8 + j] = cubeVertices[vi][j];
-            // »ö»ó
+            // ìƒ‰ìƒ
             for (int j = 0; j < 3; j++) data[i * 8 + 3 + j] = cubeFaceColors[f][j];
-            // ÅØ½ºÃ³
+            // í…ìŠ¤ì²˜
             data[i * 8 + 6] = cubeTexCoords[i][0];
             data[i * 8 + 7] = cubeTexCoords[i][1];
         }
@@ -493,7 +503,7 @@ void setupCubeVAOs()
     }
 
     // ==========================================
-    // 3. ¹Ù´Ú ¶óÀÎ (±âÁ¸ ÄÚµå À¯Áö)
+    // 3. ë°”ë‹¥ ë¼ì¸ (ê¸°ì¡´ ì½”ë“œ ìœ ì§€)
     // ==========================================
     float lineLength = 20.0f;
     GLfloat lineColor[3] = { 1.0f, 1.0f, 1.0f };
@@ -525,20 +535,69 @@ void setupCubeVAOs()
 // ------------------------------------------------------
 void setupCoinVAO()
 {
-    // [x, y, z, r, g, b] * (COIN_VERT_COUNT)
-    GLfloat data[COIN_VERT_COUNT * 6];
-
+    // [x, y, z, r, g, b, u, v] * (COIN_VERT_COUNT)
+    GLfloat data[COIN_VERT_COUNT * 8];
     int idx = 0;
 
-    // Áß½ÉÁ¡
-    data[idx++] = 0.0f; // x
-    data[idx++] = 0.0f; // y
-    data[idx++] = 0.0f; // z
-    data[idx++] = 1.0f; // r
-    data[idx++] = 1.0f; // g
-    data[idx++] = 0.0f; // b (³ë¶û)
+    // ê¸°ë³¸ ë‘ê»˜: ì•ë©´ z = +0.5, ë’·ë©´ z = -0.5  (ë‚˜ì¤‘ì— coinThicknessë¡œ ìŠ¤ì¼€ì¼)
+    const float frontZ = 0.5f;
+    const float backZ = -0.5f;
 
-    // µÑ·¹ Á¡µé
+    // í…ìŠ¤ì²˜ íŒŒë¼ë¯¸í„° (ë„ˆê°€ ë§ì¶°ë‘” ê°’ ê·¸ëŒ€ë¡œ)
+    const float texRadius = 0.38f;
+    const float texCenterU = 0.5f;
+    const float texCenterV = 0.52f;
+
+    // =======================
+    // 1) ì•ë©´ ì›íŒ (í…ìŠ¤ì²˜ ì‚¬ìš©)
+    // =======================
+
+    // ì¤‘ì‹¬
+    data[idx++] = 0.0f;          // x
+    data[idx++] = 0.0f;          // y
+    data[idx++] = frontZ;        // z
+    data[idx++] = 1.0f;          // r
+    data[idx++] = 1.0f;          // g
+    data[idx++] = 1.0f;          // b
+    data[idx++] = texCenterU;    // u
+    data[idx++] = texCenterV;    // v
+
+    // ë‘˜ë ˆ
+    for (int i = 0; i <= COIN_SEGMENTS; i++) {
+        float theta = (2.0f * 3.141592f * i) / COIN_SEGMENTS;
+        float x = cosf(theta);
+        float y = sinf(theta);
+
+        data[idx++] = x;                // x
+        data[idx++] = y;                // y
+        data[idx++] = frontZ;           // z
+        data[idx++] = 1.0f;             // r
+        data[idx++] = 1.0f;             // g
+        data[idx++] = 1.0f;             // b
+
+        float u = texCenterU + texRadius * x;
+        float v = texCenterV + texRadius * y;
+        data[idx++] = u;                // u
+        data[idx++] = v;                // v
+    }
+    // ì—¬ê¸°ê¹Œì§€ê°€ COIN_FRONT_COUNT ê°œ
+
+    // =======================
+    // 2) ë’·ë©´ ì›íŒ (ë‹¨ìƒ‰ ë…¸ë‘)
+    // =======================
+    glm::vec3 backColor(1.0f, 0.9f, 0.0f);
+
+    // ì¤‘ì‹¬
+    data[idx++] = 0.0f;
+    data[idx++] = 0.0f;
+    data[idx++] = backZ;
+    data[idx++] = backColor.r;
+    data[idx++] = backColor.g;
+    data[idx++] = backColor.b;
+    data[idx++] = 0.0f;   // u (ì‚¬ìš© ì•ˆ í•¨)
+    data[idx++] = 0.0f;   // v
+
+    // ë‘˜ë ˆ
     for (int i = 0; i <= COIN_SEGMENTS; i++) {
         float theta = (2.0f * 3.141592f * i) / COIN_SEGMENTS;
         float x = cosf(theta);
@@ -546,13 +605,64 @@ void setupCoinVAO()
 
         data[idx++] = x;
         data[idx++] = y;
-        data[idx++] = 0.0f; // z´Â 0
-
-        data[idx++] = 1.0f;
-        data[idx++] = 1.0f;
-        data[idx++] = 0.0f;
+        data[idx++] = backZ;
+        data[idx++] = backColor.r;
+        data[idx++] = backColor.g;
+        data[idx++] = backColor.b;
+        data[idx++] = 0.0f; // u
+        data[idx++] = 0.0f; // v
     }
+    // ì—¬ê¸°ê¹Œì§€ê°€ COIN_BACK_COUNT ê°œ ì¶”ê°€
 
+    // =======================
+    // 3) ì˜†ë©´(ì›í†µ ì¸¡ë©´) â€“ ì‚¼ê°í˜• 2ê°œì”©
+    // =======================
+    glm::vec3 sideColor(1.0f, 0.85f, 0.0f);
+
+    for (int i = 0; i < COIN_SEGMENTS; i++) {
+        float theta0 = (2.0f * 3.141592f * i) / COIN_SEGMENTS;
+        float theta1 = (2.0f * 3.141592f * (i + 1)) / COIN_SEGMENTS;
+
+        float x0 = cosf(theta0);
+        float y0 = sinf(theta0);
+        float x1 = cosf(theta1);
+        float y1 = sinf(theta1);
+
+        // ë„¤ ê¼­ì§“ì 
+        // v0: ì•ë©´ í…Œë‘ë¦¬
+        // v1: ì•ë©´ ë‹¤ìŒ í…Œë‘ë¦¬
+        // v2: ë’·ë©´ ë‹¤ìŒ í…Œë‘ë¦¬
+        // v3: ë’·ë©´ í…Œë‘ë¦¬
+
+        // ì‚¼ê°í˜• 1: v0, v1, v2
+        data[idx++] = x0; data[idx++] = y0; data[idx++] = frontZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+
+        data[idx++] = x1; data[idx++] = y1; data[idx++] = frontZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+
+        data[idx++] = x1; data[idx++] = y1; data[idx++] = backZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+
+        // ì‚¼ê°í˜• 2: v0, v2, v3
+        data[idx++] = x0; data[idx++] = y0; data[idx++] = frontZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+
+        data[idx++] = x1; data[idx++] = y1; data[idx++] = backZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+
+        data[idx++] = x0; data[idx++] = y0; data[idx++] = backZ;
+        data[idx++] = sideColor.r; data[idx++] = sideColor.g; data[idx++] = sideColor.b;
+        data[idx++] = 0.0f; data[idx++] = 0.0f;
+    }
+    // ì—¬ê¸°ê¹Œì§€ê°€ COIN_SIDE_COUNT ê°œ ì¶”ê°€
+
+    // ========= VAO / VBO ì„¸íŒ… =========
     GLuint vbo;
     glGenVertexArrays(1, &vaoCoin);
     glGenBuffers(1, &vbo);
@@ -561,80 +671,105 @@ void setupCoinVAO()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
 
-    // À§Ä¡
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // ìœ„ì¹˜ (x,y,z)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // »ö (»ç½Ç uObjectColor·Î µ¤¾î ¾µ °ÅÁö¸¸ Æ÷¸Ë ¸ÂÃß±â¿ë)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // ìƒ‰ (r,g,b)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    // í…ìŠ¤ì²˜ ì¢Œí‘œ (u,v)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 }
 
-// ·Îº¿ÀÇ °¢ ºÎÀ§(Å¥ºê)¸¦ ±×¸®´Â ÇïÆÛ ÇÔ¼ö
+
+// ë¡œë´‡ì˜ ê° ë¶€ìœ„(íë¸Œ)ë¥¼ ê·¸ë¦¬ëŠ” í—¬í¼ í•¨ìˆ˜
 void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
-    // 1. ¼ÎÀÌ´õ À¯´ÏÆû À§Ä¡ °¡Á®¿À±â
+    // 1. ì…°ì´ë” ìœ ë‹ˆí¼ ìœ„ì¹˜ ê°€ì ¸ì˜¤ê¸°
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
     GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
 
-    // 2. GLM Çà·ÄÀ» ¼ÎÀÌ´õ·Î Àü¼Û (glm::value_ptr »ç¿ë)
+    // 2. GLM í–‰ë ¬ì„ ì…°ì´ë”ë¡œ ì „ì†¡ (glm::value_ptr ì‚¬ìš©)
     glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
 
-    // 3. »ö»ó Àü¼Û ¹× »ö»ó ¸ğµå ÄÑ±â
-    glUniform3f(locObjectColor, color.r, color.g, color.b); // ¿øÇÏ´Â »ö»ó
-    glUniform1i(locUseObjectColor, 1); // true (·Îº¿ »ö»ó »ç¿ë)
+    // 3. ìƒ‰ìƒ ì „ì†¡ ë° ìƒ‰ìƒ ëª¨ë“œ ì¼œê¸°
+    glUniform3f(locObjectColor, color.r, color.g, color.b); // ì›í•˜ëŠ” ìƒ‰ìƒ
+    glUniform1i(locUseObjectColor, 1); // true (ë¡œë´‡ ìƒ‰ìƒ ì‚¬ìš©)
 
-    // 4. À°¸éÃ¼ ±×¸®±â (±âÁ¸ vaoCube È°¿ë)
-    // »ö»óÀº ¼ÎÀÌ´õ¿¡¼­ µ¤¾î¾²¹Ç·Î ¾Æ¹« vao³ª ½áµµ µÇÁö¸¸ 6¸éÀ» ´Ù ±×·Á¾ß ÇÔ
+    // 4. ìœ¡ë©´ì²´ ê·¸ë¦¬ê¸° (ê¸°ì¡´ vaoCube í™œìš©)
+    // ìƒ‰ìƒì€ ì…°ì´ë”ì—ì„œ ë®ì–´ì“°ë¯€ë¡œ ì•„ë¬´ vaoë‚˜ ì¨ë„ ë˜ì§€ë§Œ 6ë©´ì„ ë‹¤ ê·¸ë ¤ì•¼ í•¨
     for (int i = 0; i < 6; i++) {
         glBindVertexArray(vaoCube[i]);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
 
-    // 5. »ö»ó ¸ğµå ²ô±â (ÅÍ³Î ±×¸± ¶§ ¿µÇâÀ» ÁÖÁö ¾Êµµ·Ï)
+    // 5. ìƒ‰ìƒ ëª¨ë“œ ë„ê¸° (í„°ë„ ê·¸ë¦´ ë•Œ ì˜í–¥ì„ ì£¼ì§€ ì•Šë„ë¡)
     glUniform1i(locUseObjectColor, 0);
 }
 
 // ------------------------------------------------------
-//   ¿øÆÇ ÄÚÀÎ ±×¸®±â ÇïÆÛ
+//   ì›íŒ ì½”ì¸ ê·¸ë¦¬ê¸° í—¬í¼
 // ------------------------------------------------------
 void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
     GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
+    GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
 
     glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-    glUniform3f(locObjectColor, color.r, color.g, color.b);
-    glUniform1i(locUseObjectColor, 1);
 
     glBindVertexArray(vaoCoin);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, COIN_VERT_COUNT);
+
+    // 1) ì•ë©´ : í…ìŠ¤ì²˜ ì‚¬ìš©
+    glUniform1i(locUseTexture, 1);
+    glUniform1i(locUseObjectColor, 0); // ìƒ‰ ëŒ€ì‹  í…ìŠ¤ì²˜
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, coinTexID);   // ì´ë¯¸ makeTextureë¡œ ë¡œë“œí•´ë‘” ì½”ì¸ í…ìŠ¤ì²˜
+
+    glDrawArrays(GL_TRIANGLE_FAN, 0, COIN_FRONT_COUNT);
+
+    // 2) ë’·ë©´ + ì˜†ë©´ : ë‹¨ìƒ‰ (color ì¸ìë¡œ ë°›ì€ ë…¸ë‘)
+    glUniform1i(locUseTexture, 0);
+    glUniform1i(locUseObjectColor, 1);
+    glUniform3f(locObjectColor, color.r, color.g, color.b);
+
+    // ë’·ë©´
+    glDrawArrays(GL_TRIANGLE_FAN, COIN_FRONT_COUNT, COIN_BACK_COUNT);
+
+    // ì˜†ë©´(ì›í†µ)
+    glDrawArrays(GL_TRIANGLES, COIN_FRONT_COUNT + COIN_BACK_COUNT, COIN_SIDE_COUNT);
 
     glBindVertexArray(0);
+
+    // ìƒíƒœ ë³µêµ¬
     glUniform1i(locUseObjectColor, 0);
 }
 
+
 // ------------------------------------------------------
 // ------------------------------------------------------
-// UÀÚ + °î¼± ÀÚ¼® ¸Ş½¬ ±×¸®±â
-// baseMatrix : ÀÚ¼® ÀüÃ¼ À§Ä¡/Å©±â
+// Uì + ê³¡ì„  ìì„ ë©”ì‰¬ ê·¸ë¦¬ê¸°
+// baseMatrix : ìì„ ì „ì²´ ìœ„ì¹˜/í¬ê¸°
 // ------------------------------------------------------
 void drawMagnetMesh(glm::mat4 baseMatrix)
 {
-    glm::vec3 red(1.0f, 0.0f, 0.0f); // ÀÚ¼® º»Ã¼ »ö
-    glm::vec3 yellow(1.0f, 0.7f, 0.0f); // ÀÚ¼® ³ë¶õÆÁ »ö
+    glm::vec3 red(1.0f, 0.0f, 0.0f); // ìì„ ë³¸ì²´ ìƒ‰
+    glm::vec3 yellow(1.0f, 0.7f, 0.0f); // ìì„ ë…¸ë€íŒ ìƒ‰
 
-    // ÆÄ¶ó¹ÌÅÍ (ÀÚ¼® ±âº» ¸ğ¾ç)
-    const float ARM_HEIGHT = 0.8f;   // ¼¼·Î ±âµÕ ³ôÀÌ
-    const float ARM_WIDTH = 0.25f;  // ¼¼·Î ±âµÕ µÎ²²
+    // íŒŒë¼ë¯¸í„° (ìì„ ê¸°ë³¸ ëª¨ì–‘)
+    const float ARM_HEIGHT = 0.8f;   // ì„¸ë¡œ ê¸°ë‘¥ ë†’ì´
+    const float ARM_WIDTH = 0.25f;  // ì„¸ë¡œ ê¸°ë‘¥ ë‘ê»˜
     const float ARM_DEPTH = 0.25f;
-    const float RADIUS = 0.55f;  // U °î¼± ¹İÁö¸§
-    const float ARC_THICKNESS = 0.22f;  // °î¼± µÎ²²
-    const float TIP_SIZE = 0.30f;  // ³ë¶õ ÆÁ Å©±â
+    const float RADIUS = 0.55f;  // U ê³¡ì„  ë°˜ì§€ë¦„
+    const float ARC_THICKNESS = 0.22f;  // ê³¡ì„  ë‘ê»˜
+    const float TIP_SIZE = 0.30f;  // ë…¸ë€ íŒ í¬ê¸°
 
-    // 1) ¿ŞÂÊ ¼¼·Î ±âµÕ
+    // 1) ì™¼ìª½ ì„¸ë¡œ ê¸°ë‘¥
     {
         glm::mat4 m = baseMatrix;
         m = glm::translate(m, glm::vec3(-RADIUS, 0.0f + ARM_HEIGHT * 0.5f, 0.0f));
@@ -642,7 +777,7 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
         drawColoredCube(m, red);
     }
 
-    // 2) ¿À¸¥ÂÊ ¼¼·Î ±âµÕ
+    // 2) ì˜¤ë¥¸ìª½ ì„¸ë¡œ ê¸°ë‘¥
     {
         glm::mat4 m = baseMatrix;
         m = glm::translate(m, glm::vec3(RADIUS, 0.0f + ARM_HEIGHT * 0.5f, 0.0f));
@@ -650,17 +785,17 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
         drawColoredCube(m, red);
     }
 
-    // 3) ¾Æ·¡ °î¼± ºÎºĞ (¿©·¯ °³ÀÇ ÀÛÀº Å¥ºê·Î ¹İ¿ø ±×¸®±â)
+    // 3) ì•„ë˜ ê³¡ì„  ë¶€ë¶„ (ì—¬ëŸ¬ ê°œì˜ ì‘ì€ íë¸Œë¡œ ë°˜ì› ê·¸ë¦¬ê¸°)
     {
-        const int SEG = 18;   // ¼¼±×¸ÕÆ® ¸¹À»¼ö·Ï ´õ ºÎµå·¯¿ò
+        const int SEG = 18;   // ì„¸ê·¸ë¨¼íŠ¸ ë§ì„ìˆ˜ë¡ ë” ë¶€ë“œëŸ¬ì›€
 
         for (int i = 0; i <= SEG; i++) {
-            // 0 ~ ¥ğ : ¿ŞÂÊ ±âµÕ ¹Ø ¡æ ¿À¸¥ÂÊ ±âµÕ ¹ØÀ¸·Î °¡´Â ¹İ¿ø
+            // 0 ~ Ï€ : ì™¼ìª½ ê¸°ë‘¥ ë°‘ â†’ ì˜¤ë¥¸ìª½ ê¸°ë‘¥ ë°‘ìœ¼ë¡œ ê°€ëŠ” ë°˜ì›
             float t = glm::pi<float>() * i / SEG;
 
-            // U ÀÚ ¾Æ·¡ÂÊ °î¼± (¿ô´Â ÀÔ ¸ğ¾ç)
+            // U ì ì•„ë˜ìª½ ê³¡ì„  (ì›ƒëŠ” ì… ëª¨ì–‘)
             float x = cosf(t) * RADIUS;       // -RADIUS ~ +RADIUS
-            float y = -sinf(t) * RADIUS;      // ³¡Á¡ y = 0, °¡¿îµ¥ y = -RADIUS
+            float y = -sinf(t) * RADIUS;      // ëì  y = 0, ê°€ìš´ë° y = -RADIUS
 
             glm::mat4 m = baseMatrix;
             m = glm::translate(m, glm::vec3(x, y, 0.0f));
@@ -670,15 +805,15 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
     }
 
 
-    // 4) À§ÂÊ ³ë¶õ ÆÁ (¾çÂÊ ³¡¸¸)
+    // 4) ìœ„ìª½ ë…¸ë€ íŒ (ì–‘ìª½ ëë§Œ)
     {
-        // ¿ŞÂÊ ÆÁ
+        // ì™¼ìª½ íŒ
         glm::mat4 m = baseMatrix;
         m = glm::translate(m, glm::vec3(-RADIUS, ARM_HEIGHT + TIP_SIZE * 0.3f, 0.0f));
         m = glm::scale(m, glm::vec3(TIP_SIZE, TIP_SIZE, TIP_SIZE));
         drawColoredCube(m, yellow);
 
-        // ¿À¸¥ÂÊ ÆÁ
+        // ì˜¤ë¥¸ìª½ íŒ
         m = baseMatrix;
         m = glm::translate(m, glm::vec3(RADIUS, ARM_HEIGHT + TIP_SIZE * 0.3f, 0.0f));
         m = glm::scale(m, glm::vec3(TIP_SIZE, TIP_SIZE, TIP_SIZE));
@@ -691,20 +826,20 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
 
 
 //=========================================================================
-//±âÂ÷ ÃÊ±âÈ­ ÇÔ¼ö 
+//ê¸°ì°¨ ì´ˆê¸°í™” í•¨ìˆ˜ 
 
 void initTrains() {
     trains.clear();
 
     float startZ = -30.0f;
     float gapZ = 40.0f;
-    // ¡Ú ¼öÁ¤: ¸Ê ÆĞÅÏÀ» ±æ°Ô ¸¸µé¾î¼­ ¹İº¹µÇ´ÂÁö ¸ğ¸£°Ô ÇÔ (15 -> 50)
+    // â˜… ìˆ˜ì •: ë§µ íŒ¨í„´ì„ ê¸¸ê²Œ ë§Œë“¤ì–´ì„œ ë°˜ë³µë˜ëŠ”ì§€ ëª¨ë¥´ê²Œ í•¨ (15 -> 50)
     int numberOfSets = 50;
 
     for (int i = 0; i < numberOfSets; i++) {
         float currentZPos = startZ - (i * gapZ);
 
-        // 1ÁÙ¿¡ 1~2°³ ¹èÄ¡
+        // 1ì¤„ì— 1~2ê°œ ë°°ì¹˜
         int trainCount = (rand() % 2) + 1;
 
         std::vector<int> lanes = { -1, 0, 1 };
@@ -715,14 +850,14 @@ void initTrains() {
             t.lane = lanes[k];
             t.zPos = currentZPos;
 
-            // ¡Ú ±âÂ÷(0) vs ¿ïÅ¸¸®(1) °áÁ¤ ¡Ú
-            // °°Àº ÀÚ¸®¿¡ ±âÂ÷¶û ¿ïÅ¸¸®°¡ µ¿½Ã¿¡ »ı±æ ¼ö ¾øÀ½ (if-else ±¸Á¶¶ó¼­)
-            // 25% È®·ü·Î ¿ïÅ¸¸® »ı¼º
+            // â˜… ê¸°ì°¨(0) vs ìš¸íƒ€ë¦¬(1) ê²°ì • â˜…
+            // ê°™ì€ ìë¦¬ì— ê¸°ì°¨ë‘ ìš¸íƒ€ë¦¬ê°€ ë™ì‹œì— ìƒê¸¸ ìˆ˜ ì—†ìŒ (if-else êµ¬ì¡°ë¼ì„œ)
+            // 25% í™•ë¥ ë¡œ ìš¸íƒ€ë¦¬ ìƒì„±
             if (rand() % 4 == 0) {
-                t.type = 1; // ¿ïÅ¸¸®
+                t.type = 1; // ìš¸íƒ€ë¦¬
             }
             else {
-                t.type = 0; // ±âÂ÷
+                t.type = 0; // ê¸°ì°¨
             }
 
             t.colorType = rand() % 5;
@@ -731,26 +866,26 @@ void initTrains() {
     }
 }
 
-// ======== ¿©±âºÎÅÍ Ãß°¡: ÄÚÀÎ ÃÊ±âÈ­ ÇÔ¼ö ========
+// ======== ì—¬ê¸°ë¶€í„° ì¶”ê°€: ì½”ì¸ ì´ˆê¸°í™” í•¨ìˆ˜ ========
 void initCoins() {
     coins.clear();
 
-    // ÇÃ·¹ÀÌ¾î ±âÁØ ¾ÕÂÊ¿¡¼­ ½ÃÀÛ
+    // í”Œë ˆì´ì–´ ê¸°ì¤€ ì•ìª½ì—ì„œ ì‹œì‘
     float startZ = -20.0f;
-    float groupGap = 10.0f;    // ÄÚÀÎ ±×·ì °£ Z °£°İ
-    int   groups = 60;       // ¾ó¸¶³ª ¸Ö¸®±îÁö ¸¸µéÁö
+    float groupGap = 10.0f;    // ì½”ì¸ ê·¸ë£¹ ê°„ Z ê°„ê²©
+    int   groups = 60;       // ì–¼ë§ˆë‚˜ ë©€ë¦¬ê¹Œì§€ ë§Œë“¤ì§€
 
     for (int g = 0; g < groups; g++) {
-        // ÀÌ ±×·ì¿¡¼­ »ç¿ëÇÒ ·¹ÀÎ ÇÏ³ª ¼±ÅÃ (-1, 0, 1)
+        // ì´ ê·¸ë£¹ì—ì„œ ì‚¬ìš©í•  ë ˆì¸ í•˜ë‚˜ ì„ íƒ (-1, 0, 1)
         int lane = (rand() % 3) - 1;
 
-        // ÇÑ ±×·ì ¾È¿¡ ¸î °³ÀÇ ÄÚÀÎÀ» ÁÙÁö ·£´ı (3~5°³)
+        // í•œ ê·¸ë£¹ ì•ˆì— ëª‡ ê°œì˜ ì½”ì¸ì„ ì¤„ì§€ ëœë¤ (3~5ê°œ)
         int coinsInGroup = 3 + rand() % 3;
 
         for (int i = 0; i < coinsInGroup; i++) {
             Coin c;
             c.lane = lane;
-            // ±×·ì¸¶´Ù Z´Â ¸Ö¾îÁö°í, ±×·ì ¾È¿¡¼­´Â Á¶±İ¾¿ ¾ÕÂÊÀ¸·Î
+            // ê·¸ë£¹ë§ˆë‹¤ ZëŠ” ë©€ì–´ì§€ê³ , ê·¸ë£¹ ì•ˆì—ì„œëŠ” ì¡°ê¸ˆì”© ì•ìª½ìœ¼ë¡œ
             c.zPos = startZ - g * groupGap - i * 1.5f;
             c.collected = false;
             coins.push_back(c);
@@ -759,14 +894,14 @@ void initCoins() {
 }
 
 // ------------------------------------------------------
-// ÀÚ¼® ¾ÆÀÌÅÛ ÃÊ±âÈ­
+// ìì„ ì•„ì´í…œ ì´ˆê¸°í™”
 // ------------------------------------------------------
 void initMagnets() {
     magnets.clear();
 
-    float startZ = -60.0f;   // ÇÃ·¹ÀÌ¾î ±âÁØ Á» ´õ ¾ÕÂÊ¿¡¼­ ½ÃÀÛ
-    float gapZ = 80.0f;    // ÀÚ¼® °£ °£°İ (ÀÚÁÖ ³ª¿À¸é ÁÙÀÌ°í, µå¹°°Ô¸é ´Ã·Áµµ µÊ)
-    int   count = 10;       // ÀüÃ¼ ÀÚ¼® °³¼ö
+    float startZ = -60.0f;   // í”Œë ˆì´ì–´ ê¸°ì¤€ ì¢€ ë” ì•ìª½ì—ì„œ ì‹œì‘
+    float gapZ = 80.0f;    // ìì„ ê°„ ê°„ê²© (ìì£¼ ë‚˜ì˜¤ë©´ ì¤„ì´ê³ , ë“œë¬¼ê²Œë©´ ëŠ˜ë ¤ë„ ë¨)
+    int   count = 10;       // ì „ì²´ ìì„ ê°œìˆ˜
 
     for (int i = 0; i < count; i++) {
         Magnet m;
@@ -778,34 +913,34 @@ void initMagnets() {
 }
 
 
-//ÇÃ·¹ÀÌ¾î ¹ß ¹ØÀÇ ³ôÀÌ °è»ê ÇÔ¼ö
+//í”Œë ˆì´ì–´ ë°œ ë°‘ì˜ ë†’ì´ ê³„ì‚° í•¨ìˆ˜
 float getGroundHeight() {
-    float trainHeight = 0.8f;   // ±âÂ÷ ³ôÀÌ
-    float trainWidth = 0.3f;    // ±âÂ÷ Æø (Ãæµ¹ ÆÇÁ¤¿ë)
-    float trainLength = 15.0f;  // ±âÂ÷ ±æÀÌ
+    float trainHeight = 0.8f;   // ê¸°ì°¨ ë†’ì´
+    float trainWidth = 0.3f;    // ê¸°ì°¨ í­ (ì¶©ëŒ íŒì •ìš©)
+    float trainLength = 15.0f;  // ê¸°ì°¨ ê¸¸ì´
 
     for (int i = 0; i < trains.size(); i++) {
-        // 1. ±âÂ÷ÀÇ ÇöÀç Z À§Ä¡ °è»ê (ÇÃ·¹ÀÌ¾î ÂÊÀ¸·Î ´Ù°¡¿À´Â °Í ¹İ¿µ)
+        // 1. ê¸°ì°¨ì˜ í˜„ì¬ Z ìœ„ì¹˜ ê³„ì‚° (í”Œë ˆì´ì–´ ìª½ìœ¼ë¡œ ë‹¤ê°€ì˜¤ëŠ” ê²ƒ ë°˜ì˜)
         float currentTrainZ = trains[i].zPos + tunnelOffsetZ;
 
-        // 2. ±âÂ÷ÀÇ X À§Ä¡ °è»ê
+        // 2. ê¸°ì°¨ì˜ X ìœ„ì¹˜ ê³„ì‚°
         float trainX = trains[i].lane * LANE_WIDTH;
 
-        // 3. Ãæµ¹ °Ë»ç (ÇÃ·¹ÀÌ¾î°¡ ±âÂ÷ ¿µ¿ª ¾È¿¡ ÀÖ´Â°¡?)
-        // ÇÃ·¹ÀÌ¾î Z´Â -3.0f·Î °íÁ¤µÇ¾î ÀÖ´Ù°í °¡Á¤ (Àü¿ªº¯¼ö playerZ)
+        // 3. ì¶©ëŒ ê²€ì‚¬ (í”Œë ˆì´ì–´ê°€ ê¸°ì°¨ ì˜ì—­ ì•ˆì— ìˆëŠ”ê°€?)
+        // í”Œë ˆì´ì–´ ZëŠ” -3.0fë¡œ ê³ ì •ë˜ì–´ ìˆë‹¤ê³  ê°€ì • (ì „ì—­ë³€ìˆ˜ playerZ)
 
-        // ZÃà ÆÇÁ¤: ±âÂ÷ ¾ÕµÚ ±æÀÌ ¾È¿¡ ÇÃ·¹ÀÌ¾î°¡ ÀÖ´Â°¡?
+        // Zì¶• íŒì •: ê¸°ì°¨ ì•ë’¤ ê¸¸ì´ ì•ˆì— í”Œë ˆì´ì–´ê°€ ìˆëŠ”ê°€?
         bool inZ = (playerZ >= currentTrainZ - trainLength / 2.0f) &&
             (playerZ <= currentTrainZ + trainLength / 2.0f);
 
-        // XÃà ÆÇÁ¤: ÇÃ·¹ÀÌ¾î°¡ ±âÂ÷ ·¹ÀÎ(ÁÂ¿ì Æø) ¾È¿¡ ÀÖ´Â°¡?
-        // ÇÃ·¹ÀÌ¾î Å¥ºê Å©±â°¡ ÀÖÀ¸´Ï ¾à°£ ¿©À¯¸¦ µÓ´Ï´Ù (+0.1f)
+        // Xì¶• íŒì •: í”Œë ˆì´ì–´ê°€ ê¸°ì°¨ ë ˆì¸(ì¢Œìš° í­) ì•ˆì— ìˆëŠ”ê°€?
+        // í”Œë ˆì´ì–´ íë¸Œ í¬ê¸°ê°€ ìˆìœ¼ë‹ˆ ì•½ê°„ ì—¬ìœ ë¥¼ ë‘¡ë‹ˆë‹¤ (+0.1f)
         bool inX = (playerX >= trainX - trainWidth / 2.0f - 0.1f) &&
             (playerX <= trainX + trainWidth / 2.0f + 0.1f);
 
-        // ÇÃ·¹ÀÌ¾î°¡ ±âÂ÷ À§¿¡ ÀÖ°í, ÇÃ·¹ÀÌ¾î ³ôÀÌ°¡ ±âÂ÷º¸´Ù ³ô°Å³ª °°À» ¶§ (¶Õ°í ¿Ã¶ó¿ÀÁö ¾Ê°Ô)
+        // í”Œë ˆì´ì–´ê°€ ê¸°ì°¨ ìœ„ì— ìˆê³ , í”Œë ˆì´ì–´ ë†’ì´ê°€ ê¸°ì°¨ë³´ë‹¤ ë†’ê±°ë‚˜ ê°™ì„ ë•Œ (ëš«ê³  ì˜¬ë¼ì˜¤ì§€ ì•Šê²Œ)
         if (inZ && inX && jumpY >= trainHeight - 0.1f) {
-            return trainHeight; // ¿©±â´Â ¹Ù´ÚÀÌ 0.8ÃşÀÌ´Ù!
+            return trainHeight; // ì—¬ê¸°ëŠ” ë°”ë‹¥ì´ 0.8ì¸µì´ë‹¤!
         }
     }
 
@@ -815,92 +950,92 @@ float getGroundHeight() {
 
 
 bool checkCollision() {
-    float tHeight = 0.8f;      // ±âÂ÷ ³ôÀÌ
-    float tLength = 15.0f;     // ±âÂ÷ ±æÀÌ
-    float collisionWidth = 0.4f; // Ãæµ¹ ³Êºñ
+    float tHeight = 0.8f;      // ê¸°ì°¨ ë†’ì´
+    float tLength = 15.0f;     // ê¸°ì°¨ ê¸¸ì´
+    float collisionWidth = 0.4f; // ì¶©ëŒ ë„ˆë¹„
 
     for (int i = 0; i < trains.size(); i++) {
-        // 1. °øÅë À§Ä¡ °è»ê
+        // 1. ê³µí†µ ìœ„ì¹˜ ê³„ì‚°
         float currentTrainZ = trains[i].zPos + tunnelOffsetZ;
         float trainX = trains[i].lane * LANE_WIDTH;
 
-        // 2. [XÃà °Ë»ç] ·¹ÀÎÀÌ ´Ù¸£¸é Ãæµ¹ÇÒ ÀÏÀÌ ¾øÀ¸´Ï ¹Ù·Î ÆĞ½º (ÃÖÀûÈ­)
+        // 2. [Xì¶• ê²€ì‚¬] ë ˆì¸ì´ ë‹¤ë¥´ë©´ ì¶©ëŒí•  ì¼ì´ ì—†ìœ¼ë‹ˆ ë°”ë¡œ íŒ¨ìŠ¤ (ìµœì í™”)
         bool inLane = abs(playerX - trainX) < collisionWidth;
         if (!inLane) continue;
 
 
         // ---------------------------------------------------------
-        // ¡Ú Å¸ÀÔº° Ãæµ¹ ·ÎÁ÷ ºĞ±â (±âÂ÷ vs Àå¾Ö¹°) ¡Ú
+        // â˜… íƒ€ì…ë³„ ì¶©ëŒ ë¡œì§ ë¶„ê¸° (ê¸°ì°¨ vs ì¥ì• ë¬¼) â˜…
         // ---------------------------------------------------------
 
         if (trains[i].type == 0) {
-            // [TYPE 0: ±âÂ÷] - ±âÁ¸ ·ÎÁ÷ À¯Áö
+            // [TYPE 0: ê¸°ì°¨] - ê¸°ì¡´ ë¡œì§ ìœ ì§€
 
             float trainFront = currentTrainZ + (tLength / 2.0f);
             float trainBack = currentTrainZ - (tLength / 2.0f);
 
-            // Áøµ¿ ¹æÁö¸¦ À§ÇØ ¾ÕÂÊ ÆÇÁ¤À» ³Ë³ËÇÏ°Ô Àâ¾Ò´ø(+0.8f) ±âÁ¸ ÄÚµå À¯Áö
+            // ì§„ë™ ë°©ì§€ë¥¼ ìœ„í•´ ì•ìª½ íŒì •ì„ ë„‰ë„‰í•˜ê²Œ ì¡ì•˜ë˜(+0.8f) ê¸°ì¡´ ì½”ë“œ ìœ ì§€
             bool inZ = (playerZ < trainFront + 0.8f) && (playerZ > trainBack + 0.2f);
 
-            // Á¡ÇÁÇØ¼­ ±âÂ÷ À§¿¡ ¿Ã¶ó°¡Áö ¸øÇÑ °æ¿ì(³·À» ¶§)¸¸ Ãæµ¹
+            // ì í”„í•´ì„œ ê¸°ì°¨ ìœ„ì— ì˜¬ë¼ê°€ì§€ ëª»í•œ ê²½ìš°(ë‚®ì„ ë•Œ)ë§Œ ì¶©ëŒ
             bool isLow = jumpY < (tHeight - 0.1f);
 
             if (inZ && isLow) {
-                return true; // Äç!
+                return true; // ì¾…!
             }
         }
         else {
-            // [TYPE 1: Àå¾Ö¹°(¿ïÅ¸¸®)] - »õ·Î Ãß°¡µÈ ·ÎÁ÷
+            // [TYPE 1: ì¥ì• ë¬¼(ìš¸íƒ€ë¦¬)] - ìƒˆë¡œ ì¶”ê°€ëœ ë¡œì§
 
-            // Àå¾Ö¹°Àº ±âÂ÷Ã³·³ ±æÁö ¾Ê°í ¾ãÀ½ (¾ÕµÚ Æø 0.4f Á¤µµ ¿©À¯)
-            // ¿ïÅ¸¸® À§Ä¡(currentTrainZ)¸¦ ±âÁØÀ¸·Î ÇÃ·¹ÀÌ¾î°¡ Áö³ª°¡´Â ÁßÀÎ°¡?
+            // ì¥ì• ë¬¼ì€ ê¸°ì°¨ì²˜ëŸ¼ ê¸¸ì§€ ì•Šê³  ì–‡ìŒ (ì•ë’¤ í­ 0.4f ì •ë„ ì—¬ìœ )
+            // ìš¸íƒ€ë¦¬ ìœ„ì¹˜(currentTrainZ)ë¥¼ ê¸°ì¤€ìœ¼ë¡œ í”Œë ˆì´ì–´ê°€ ì§€ë‚˜ê°€ëŠ” ì¤‘ì¸ê°€?
             bool hitBarrierZ = (playerZ < currentTrainZ + 0.4f) && (playerZ > currentTrainZ - 0.4f);
 
             if (hitBarrierZ) {
-                // 1) ½½¶óÀÌµù ÁßÀÌ¶ó¸é? -> ¹«»ç Åë°ú (Ãæµ¹ ¾Æ´Ô)
+                // 1) ìŠ¬ë¼ì´ë”© ì¤‘ì´ë¼ë©´? -> ë¬´ì‚¬ í†µê³¼ (ì¶©ëŒ ì•„ë‹˜)
                 if (isSliding) continue;
 
-                // 2) Á¡ÇÁ¸¦ ¾ÆÁÖ ³ô°Ô ¶Ù¾ú´Ù¸é? (¿ïÅ¸¸® ³ôÀÌ 0.6 ÀÌ»ó) -> ¹«»ç Åë°ú
+                // 2) ì í”„ë¥¼ ì•„ì£¼ ë†’ê²Œ ë›°ì—ˆë‹¤ë©´? (ìš¸íƒ€ë¦¬ ë†’ì´ 0.6 ì´ìƒ) -> ë¬´ì‚¬ í†µê³¼
                 if (jumpY > 0.6f) continue;
 
-                // ½½¶óÀÌµùµµ ¾Æ´Ï°í, Á¡ÇÁµµ ³·À¸¸é -> Ãæµ¹!
+                // ìŠ¬ë¼ì´ë”©ë„ ì•„ë‹ˆê³ , ì í”„ë„ ë‚®ìœ¼ë©´ -> ì¶©ëŒ!
                 return true;
             }
         }
     }
-    return false; // Ãæµ¹ ¾øÀ½
+    return false; // ì¶©ëŒ ì—†ìŒ
 }
 
 
 
-// ======== ¿©±âºÎÅÍ Ãß°¡: ÄÚÀÎ ¾÷µ¥ÀÌÆ® & ¸Ô±â ========
+// ======== ì—¬ê¸°ë¶€í„° ì¶”ê°€: ì½”ì¸ ì—…ë°ì´íŠ¸ & ë¨¹ê¸° ========
 void updateCoins() {
-    float coinWidth = 0.25f;   // ±âº» X Ãæµ¹ Æø
-    float coinLength = 0.5f;    // ±âº» Z Ãæµ¹ Æø
+    float coinWidth = 0.25f;   // ê¸°ë³¸ X ì¶©ëŒ í­
+    float coinLength = 0.5f;    // ê¸°ë³¸ Z ì¶©ëŒ í­
 
-    // ±âÂ÷¿Í ¶È°°ÀÌ Æ®·¢ ±æÀÌ¸¦ µ¹·ÁÁÖ±â À§ÇØ »ç¿ë
-    float loopDistance = 50.0f * 40.0f; // (train¿¡¼­ numberOfSets * gapZ)
+    // ê¸°ì°¨ì™€ ë˜‘ê°™ì´ íŠ¸ë™ ê¸¸ì´ë¥¼ ëŒë ¤ì£¼ê¸° ìœ„í•´ ì‚¬ìš©
+    float loopDistance = 50.0f * 40.0f; // (trainì—ì„œ numberOfSets * gapZ)
 
-    // ÀÚ¼®ÀÌ È°¼ºÈ­µÇ¸é ¾à°£¸¸ ¹üÀ§¸¦ ´Ã·ÁÁØ´Ù.
-    // (¿· ·¹ÀÎ±îÁö´Â »ìÂ¦, ³Ê¹« ¸Ö¸® ÀÖ´Â °Ç ¸ÔÁö ¾Ê°Ô)
+    // ìì„ì´ í™œì„±í™”ë˜ë©´ ì•½ê°„ë§Œ ë²”ìœ„ë¥¼ ëŠ˜ë ¤ì¤€ë‹¤.
+    // (ì˜† ë ˆì¸ê¹Œì§€ëŠ” ì‚´ì§, ë„ˆë¬´ ë©€ë¦¬ ìˆëŠ” ê±´ ë¨¹ì§€ ì•Šê²Œ)
     float extraX = 0.0f;
     float extraZ = 0.0f;
-    if (isMagnetActive) { // ÀÚ¼® ¹üÀ§
-        extraX = 1.5f;   // ÁÂ/¿ì
-        extraZ = 1.5f;   // ¾Õ/µÚ
+    if (isMagnetActive) { // ìì„ ë²”ìœ„
+        extraX = 1.5f;   // ì¢Œ/ìš°
+        extraZ = 1.5f;   // ì•/ë’¤
     }
 
     for (int i = 0; i < coins.size(); i++) {
         float currentZ = coins[i].zPos + tunnelOffsetZ;
 
-        // È­¸é µÚ·Î ³Ñ¾î°£ ÄÚÀÎÀº Æ®·¢ µÚ·Î º¸³»¸é¼­ "»õ ÄÚÀÎ"À¸·Î Àç»ç¿ë
+        // í™”ë©´ ë’¤ë¡œ ë„˜ì–´ê°„ ì½”ì¸ì€ íŠ¸ë™ ë’¤ë¡œ ë³´ë‚´ë©´ì„œ "ìƒˆ ì½”ì¸"ìœ¼ë¡œ ì¬ì‚¬ìš©
         if (currentZ > 5.0f) {
             coins[i].zPos -= loopDistance;
             coins[i].collected = false;
             continue;
         }
 
-        // ÀÌ¹Ì ¸ÔÀº ÄÚÀÎÀº ´õ ÀÌ»ó Ã¼Å©ÇÏÁö ¾Ê´Â´Ù.
+        // ì´ë¯¸ ë¨¹ì€ ì½”ì¸ì€ ë” ì´ìƒ ì²´í¬í•˜ì§€ ì•ŠëŠ”ë‹¤.
         if (coins[i].collected)
             continue;
 
@@ -910,25 +1045,25 @@ void updateCoins() {
         bool inZ = fabs(playerZ - currentZ) < (coinLength + extraZ);
 
         if (inX && inZ) {
-            // ¿©±â¼­ ´Ü ÇÑ ¹ø¸¸ collected -> true ·Î ¹Ù²Ù°í,
-            // coinCount¸¦ +1 ÇØÁØ´Ù.
+            // ì—¬ê¸°ì„œ ë‹¨ í•œ ë²ˆë§Œ collected -> true ë¡œ ë°”ê¾¸ê³ ,
+            // coinCountë¥¼ +1 í•´ì¤€ë‹¤.
             coins[i].collected = true;
             coinCount++;
         }
     }
 }
 // ------------------------------------------------------
-// ÀÚ¼® À§Ä¡ ¾÷µ¥ÀÌÆ® + ÇÃ·¹ÀÌ¾î°¡ ¸Ô¾ú´ÂÁö Ã¼Å©
+// ìì„ ìœ„ì¹˜ ì—…ë°ì´íŠ¸ + í”Œë ˆì´ì–´ê°€ ë¨¹ì—ˆëŠ”ì§€ ì²´í¬
 // ------------------------------------------------------
 void updateMagnets() {
-    float collisionWidth = 0.4f;  // X Ãæµ¹ Çã¿ë
-    float collisionLength = 0.7f;  // Z Ãæµ¹ Çã¿ë
-    float loopDistance = 50.0f * 40.0f; // Æ®·¢ ±æÀÌ (±âÂ÷¶û µ¿ÀÏ)
+    float collisionWidth = 0.4f;  // X ì¶©ëŒ í—ˆìš©
+    float collisionLength = 0.7f;  // Z ì¶©ëŒ í—ˆìš©
+    float loopDistance = 50.0f * 40.0f; // íŠ¸ë™ ê¸¸ì´ (ê¸°ì°¨ë‘ ë™ì¼)
 
     for (int i = 0; i < magnets.size(); i++) {
         float currentZ = magnets[i].zPos + tunnelOffsetZ;
 
-        // È­¸é µÚ·Î ³ª°¡¸é µÚ·Î º¸³»±â
+        // í™”ë©´ ë’¤ë¡œ ë‚˜ê°€ë©´ ë’¤ë¡œ ë³´ë‚´ê¸°
         if (currentZ > 5.0f) {
             magnets[i].zPos -= loopDistance;
             magnets[i].collected = false;
@@ -943,7 +1078,7 @@ void updateMagnets() {
         bool inZ = fabs(playerZ - currentZ) < collisionLength;
 
         if (inX && inZ) {
-            // ÀÚ¼® ¸ÔÀ½!
+            // ìì„ ë¨¹ìŒ!
             magnets[i].collected = true;
             isMagnetActive = true;
             magnetTimer = MAGNET_DURATION;
@@ -957,7 +1092,7 @@ void drawCubeFace(int f) {
 }
 
 //================================================================
-//±âÂ÷ ±×¸®±â ÇÔ¼ö
+//ê¸°ì°¨ ê·¸ë¦¬ê¸° í•¨ìˆ˜
 void drawTrains() {
     float tWidth = 0.5f;
     float tHeight = 0.8f;
@@ -981,7 +1116,7 @@ void drawTrains() {
         float x = trains[i].lane * LANE_WIDTH;
 
         if (trains[i].type == 0) {
-            // [±âÂ÷ ±×¸®±â]
+            // [ê¸°ì°¨ ê·¸ë¦¬ê¸°]
             float y = -1.0f + (tHeight / 2.0f) + 0.05f;
 
             glm::mat4 model = glm::mat4(1.0f);
@@ -990,42 +1125,42 @@ void drawTrains() {
 
             glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(model));
 
-            // ÅØ½ºÃ³ ¸ğµå ÄÑ±â
+            // í…ìŠ¤ì²˜ ëª¨ë“œ ì¼œê¸°
             glUniform1i(locUseTexture, 1);
             glUniform1i(locUseObjectColor, 0);
 
             glActiveTexture(GL_TEXTURE0);
 
             // -------------------------------------------------
-            // 1) ¿·¸é ±×¸®±â (¿ŞÂÊ:4, ¿À¸¥ÂÊ:5) -> trainSideTexID
+            // 1) ì˜†ë©´ ê·¸ë¦¬ê¸° (ì™¼ìª½:4, ì˜¤ë¥¸ìª½:5) -> trainSideTexID
             // -------------------------------------------------
             glBindTexture(GL_TEXTURE_2D, trainSideTexID);
             drawCubeFace(4);
             drawCubeFace(5);
 
             // -------------------------------------------------
-            // 2) ¾Õ/µŞ¸é ±×¸®±â (¾Õ:0, µÚ:1) -> trainFrontTexID
+            // 2) ì•/ë’·ë©´ ê·¸ë¦¬ê¸° (ì•:0, ë’¤:1) -> trainFrontTexID
             // -------------------------------------------------
             glBindTexture(GL_TEXTURE_2D, trainFrontTexID);
             drawCubeFace(0);
             drawCubeFace(1);
 
             // -------------------------------------------------
-            // 3) ¡Ú¡Ú¡Ú À­¸é ±×¸®±â (ÃµÀå:3) -> trainTopTexID ¡Ú¡Ú¡Ú
-            // ÀÌ ºÎºĞÀÌ ÀÖ¾î¾ß À­¸é¿¡ ÁöºØ »çÁøÀÌ ³ª¿É´Ï´Ù!
+            // 3) â˜…â˜…â˜… ìœ—ë©´ ê·¸ë¦¬ê¸° (ì²œì¥:3) -> trainTopTexID â˜…â˜…â˜…
+            // ì´ ë¶€ë¶„ì´ ìˆì–´ì•¼ ìœ—ë©´ì— ì§€ë¶• ì‚¬ì§„ì´ ë‚˜ì˜µë‹ˆë‹¤!
             // -------------------------------------------------
             glBindTexture(GL_TEXTURE_2D, trainTopTexID);
             drawCubeFace(3);
 
-            // 4) ¹Ù´Ú¸é (2) -> ¹Ù´ÚÀº ¾È º¸ÀÌ´Ï±î ¿·¸é ÅØ½ºÃ³·Î ´ëÃæ Ã¤¿ò
+            // 4) ë°”ë‹¥ë©´ (2) -> ë°”ë‹¥ì€ ì•ˆ ë³´ì´ë‹ˆê¹Œ ì˜†ë©´ í…ìŠ¤ì²˜ë¡œ ëŒ€ì¶© ì±„ì›€
             glBindTexture(GL_TEXTURE_2D, trainSideTexID);
             drawCubeFace(2);
 
-            // ÅØ½ºÃ³ ²ô±â
+            // í…ìŠ¤ì²˜ ë„ê¸°
             glUniform1i(locUseTexture, 0);
         }
         else {
-            // [Àå¾Ö¹° ±×¸®±â]
+            // [ì¥ì• ë¬¼ ê·¸ë¦¬ê¸°]
             float barY = -1.0f + 0.7f;
             glm::mat4 barModel = glm::mat4(1.0f);
             barModel = glm::translate(barModel, glm::vec3(x, barY, currentZ));
@@ -1046,18 +1181,18 @@ void drawTrains() {
 }
 //=============================================================================
 
-// ======== ¿©±âºÎÅÍ: ÄÚÀÎ ±×¸®±â (¿øÆÇ + È¸Àü) ========
+// ======== ì—¬ê¸°ë¶€í„°: ì½”ì¸ ê·¸ë¦¬ê¸° (ì›íŒ + íšŒì „) ==========
 void drawCoins() {
-    float coinRadius = 0.2f;   // µ¿±×¶ó¹Ì ¹İÁö¸§
-    float coinThickness = 0.1f;   // µÎ²² (¾ãÀº ¿øÆÇ)
-    float coinY = -1.0f + 0.5f;  // ¹Ù´Ú À§·Î ¶ç¿ì´Â ³ôÀÌ
+    float coinRadius = 0.2f;   // ë™ê·¸ë¼ë¯¸ ë°˜ì§€ë¦„
+    float coinThickness = 0.08f;   // ë‘ê»˜ ì¡°ì •
+    float coinY = -1.0f + 0.5f;  // ë°”ë‹¥ ìœ„ë¡œ ë„ìš°ëŠ” ë†’ì´
 
     float loopDistance = 50.0f * 40.0f;
 
     for (int i = 0; i < coins.size(); i++) {
         float currentZ = coins[i].zPos + tunnelOffsetZ;
 
-        // È­¸é µÚ·Î ³Ñ¾î°¡¸é Àç¹èÄ¡
+        // í™”ë©´ ë’¤ë¡œ ë„˜ì–´ê°€ë©´ ì¬ë°°ì¹˜
         if (currentZ > 5.0f) {
             coins[i].zPos -= loopDistance;
             coins[i].collected = false;
@@ -1072,21 +1207,21 @@ void drawCoins() {
         glm::mat4 m = glm::mat4(1.0f);
         m = glm::translate(m, glm::vec3(x, coinY, currentZ));
 
-        // ÄÚÀÎÀÌ ¼¼·Î·Î ¼­ ÀÖ°í, YÃà ±âÁØÀ¸·Î ºù±Ûºù±Û
+        // ì½”ì¸ì´ ì„¸ë¡œë¡œ ì„œ ìˆê³ , Yì¶• ê¸°ì¤€ìœ¼ë¡œ ë¹™ê¸€ë¹™ê¸€
         m = glm::rotate(m, glm::radians(coinRotateAngle), glm::vec3(0.0f, 1.0f, 0.0f));
 
-        // XY Æò¸é¿¡ ¸¸µç ¿øÆÇÀ» ½ÇÁ¦ Å©±â·Î ½ºÄÉÀÏ
+        // XY í‰ë©´ì— ë§Œë“  ì›íŒì„ ì‹¤ì œ í¬ê¸°ë¡œ ìŠ¤ì¼€ì¼
         m = glm::scale(m, glm::vec3(coinRadius, coinRadius, coinThickness));
 
-        // ³ë¶õ ÄÚÀÎ
+        // ë…¸ë€ ì½”ì¸
         drawCoinMesh(m, glm::vec3(1.0f, 1.0f, 0.0f));
     }
 }
 // ------------------------------------------------------
-// ÀÚ¼® ±×¸®±â
+// ìì„ ê·¸ë¦¬ê¸°
 // ------------------------------------------------------
 void drawMagnets() {
-    float magnetY = -1.0f + 0.5f;  // ÄÚÀÎ°ú ºñ½ÁÇÑ ³ôÀÌ
+    float magnetY = -1.0f + 0.5f;  // ì½”ì¸ê³¼ ë¹„ìŠ·í•œ ë†’ì´
     float baseScale = 0.4f;
 
     float loopDistance = 50.0f * 40.0f;
@@ -1108,7 +1243,7 @@ void drawMagnets() {
         m = glm::translate(m, glm::vec3(x, magnetY, currentZ));
         m = glm::scale(m, glm::vec3(baseScale));
 
-        // »ìÂ¦ È¸Àü½ÃÅ² µğÀÚÀÎ
+        // ì‚´ì§ íšŒì „ì‹œí‚¨ ë””ìì¸
         //m = glm::rotate(m, glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         drawMagnetMesh(m);
@@ -1117,40 +1252,40 @@ void drawMagnets() {
 
 
 // ------------------------------------------------------
-// ·¹ÀÏ À§ ³ª¹« Ä§¸ñ(Å¥ºê) ±×¸®±â
+// ë ˆì¼ ìœ„ ë‚˜ë¬´ ì¹¨ëª©(íë¸Œ) ê·¸ë¦¬ê¸°
 // ------------------------------------------------------
 void drawWoodPlanks()
 {
-    // ³ª¹« »ö (Â£Àº °¥»ö)
+    // ë‚˜ë¬´ ìƒ‰ (ì§™ì€ ê°ˆìƒ‰)
     glm::vec3 plankColor(0.45f, 0.26f, 0.09f);
 
-    // y À§Ä¡: ¹Ù´ÚÀÌ ´ë·« y = -1 ±ÙÃ³´Ï±î ±× À§·Î »ìÂ¦ ¶ç¿ö¼­
-    float plankY = -1.0f + 0.03f;        // ¹Ù´Ú ¹Ù·Î À§
-    float plankHeight = 0.06f;               // µÎ²²(y)
+    // y ìœ„ì¹˜: ë°”ë‹¥ì´ ëŒ€ëµ y = -1 ê·¼ì²˜ë‹ˆê¹Œ ê·¸ ìœ„ë¡œ ì‚´ì§ ë„ì›Œì„œ
+    float plankY = -1.0f + 0.03f;        // ë°”ë‹¥ ë°”ë¡œ ìœ„
+    float plankHeight = 0.06f;               // ë‘ê»˜(y)
 
-    // x, z ½ºÄÉÀÏ
-    //  - x : ·¹ÀÎ ¾ÈÀ» °¡·ÎÁú·¯¼­ (Ä§¸ñÀÌ ·¹ÀÎ °¡·Î·Î ³õÀÌ´Â ´À³¦)
-    //  - z : ÁøÇà ¹æÇâÀ¸·Î´Â Âª°Ô
-    float plankWidth = LANE_WIDTH * 0.6f;   // x ¹æÇâ ±æÀÌ (·¹ÀÎ °ÅÀÇ ²Ë Â÷°Ô)
-    float plankDepth = 0.25f;               // z ¹æÇâ ±æÀÌ (¾ÕµÚ ±æÀÌ)
+    // x, z ìŠ¤ì¼€ì¼
+    //  - x : ë ˆì¸ ì•ˆì„ ê°€ë¡œì§ˆëŸ¬ì„œ (ì¹¨ëª©ì´ ë ˆì¸ ê°€ë¡œë¡œ ë†“ì´ëŠ” ëŠë‚Œ)
+    //  - z : ì§„í–‰ ë°©í–¥ìœ¼ë¡œëŠ” ì§§ê²Œ
+    float plankWidth = LANE_WIDTH * 0.6f;   // x ë°©í–¥ ê¸¸ì´ (ë ˆì¸ ê±°ì˜ ê½‰ ì°¨ê²Œ)
+    float plankDepth = 0.25f;               // z ë°©í–¥ ê¸¸ì´ (ì•ë’¤ ê¸¸ì´)
 
-    // Z ¹æÇâ °£°İ (¾ó¸¶³ª ¶ç¾ö¶ç¾ö ³õÀ»Áö)
-    float plankGapZ = 1.52f;                // °ª ÁÙÀÌ¸é ÃÎÃÎ, Å°¿ì¸é µë¼ºµë¼º
+    // Z ë°©í–¥ ê°„ê²© (ì–¼ë§ˆë‚˜ ë„ì—„ë„ì—„ ë†“ì„ì§€)
+    float plankGapZ = 1.52f;                // ê°’ ì¤„ì´ë©´ ì´˜ì´˜, í‚¤ìš°ë©´ ë“¬ì„±ë“¬ì„±
 
-    // ¾îµğ¼­ºÎÅÍ ¾îµğ±îÁö ±òÁö (ÇÃ·¹ÀÌ¾î ±âÁØ)
-    float startZ = -1.0f;   // ÇÃ·¹ÀÌ¾îº¸´Ù ¾à°£ ¾ÕºÎÅÍ
-    float endZ = -300.0f; // ÅÍ³Î ³¡ ÂÊ±îÁö
+    // ì–´ë””ì„œë¶€í„° ì–´ë””ê¹Œì§€ ê¹”ì§€ (í”Œë ˆì´ì–´ ê¸°ì¤€)
+    float startZ = -1.0f;   // í”Œë ˆì´ì–´ë³´ë‹¤ ì•½ê°„ ì•ë¶€í„°
+    float endZ = -300.0f; // í„°ë„ ë ìª½ê¹Œì§€
 
     for (float localZ = startZ; localZ > endZ; localZ -= plankGapZ)
     {
-        // tunnelOffsetZ ¸¦ ´õÇØ¼­ ½ÇÁ¦ È­¸é»óÀÇ À§Ä¡·Î
+        // tunnelOffsetZ ë¥¼ ë”í•´ì„œ ì‹¤ì œ í™”ë©´ìƒì˜ ìœ„ì¹˜ë¡œ
         float z = localZ + tunnelOffsetZ;
 
-        // ³Ê¹« µÚ/¾ÕÀº ¾È ±×¸®±â (¼º´É + ÇÊ¿ä ¾ø´Â ºÎºĞ Á¦°Å)
+        // ë„ˆë¬´ ë’¤/ì•ì€ ì•ˆ ê·¸ë¦¬ê¸° (ì„±ëŠ¥ + í•„ìš” ì—†ëŠ” ë¶€ë¶„ ì œê±°)
         if (z > 5.0f)   continue;
         if (z < -250.0f) continue;
 
-        // 3°³ ·¹ÀÎ(-1, 0, 1)¿¡ °¢°¢ Ä§¸ñ ÇÏ³ª¾¿
+        // 3ê°œ ë ˆì¸(-1, 0, 1)ì— ê°ê° ì¹¨ëª© í•˜ë‚˜ì”©
         for (int lane = -1; lane <= 1; lane++)
         {
             float x = lane * LANE_WIDTH;
@@ -1159,14 +1294,14 @@ void drawWoodPlanks()
             m = glm::translate(m, glm::vec3(x, plankY, z));
             m = glm::scale(m, glm::vec3(plankWidth, plankHeight, plankDepth));
 
-            // ½ÇÁ¦·Î´Â ¾ã°Ô ³³ÀÛÇÑ ¡°Å¥ºê¡±¸¦ ±×¸®´Â °Í
+            // ì‹¤ì œë¡œëŠ” ì–‡ê²Œ ë‚©ì‘í•œ â€œíë¸Œâ€ë¥¼ ê·¸ë¦¬ëŠ” ê²ƒ
             drawColoredCube(m, plankColor);
         }
     }
 }
 
 
-// --- Ãß°¡ --- ·¹ÀÎ °æ°è¼± ÇÏ³ª ±×¸®±â
+// --- ì¶”ê°€ --- ë ˆì¸ ê²½ê³„ì„  í•˜ë‚˜ ê·¸ë¦¬ê¸°
 void drawLaneLine() {
     glBindVertexArray(vaoLaneLine);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -1175,41 +1310,41 @@ void drawLaneLine() {
 
 
 //=========================================================
-//idle ÇÔ¼ö
+//idle í•¨ìˆ˜
 
 void idle() {
     bool needRedisplay = false;
 
-    // Áö³­ ÇÁ·¹ÀÓ¿¡¼­ ¾ó¸¶³ª ½Ã°£ÀÌ Áö³µ´ÂÁö(ÃÊ) °è»ê -> ÀÚ¼® ±â´É ¾÷µ¥ÀÌÆ®¿¡ »ç¿ë
+    // ì§€ë‚œ í”„ë ˆì„ì—ì„œ ì–¼ë§ˆë‚˜ ì‹œê°„ì´ ì§€ë‚¬ëŠ”ì§€(ì´ˆ) ê³„ì‚° -> ìì„ ê¸°ëŠ¥ ì—…ë°ì´íŠ¸ì— ì‚¬ìš©
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
     if (prevTime == 0) prevTime = currentTime;
     int elapsed = currentTime - prevTime;
     prevTime = currentTime;
     deltaTime = elapsed / 1000.0f;
 
-    // ¡Ú Ãæµ¹ Ã¼Å© ·ÎÁ÷ ¼öÁ¤ ¡Ú
+    // â˜… ì¶©ëŒ ì²´í¬ ë¡œì§ ìˆ˜ì • â˜…
 
     if (isGameStarted) {
 
         if (checkCollision()) {
-            // Ãæµ¹ »óÅÂ
-            isAutoMove = false; // ¸ØÃã
+            // ì¶©ëŒ ìƒíƒœ
+            isAutoMove = false; // ë©ˆì¶¤
             tunnelOffsetZ -= 0.2f;
             autoMoveSpeedPerFrame = 0.02f;
             needRedisplay = true;
         }
         else {
-            // Ãæµ¹ »óÅÂ°¡ ¾Æ´Ï¶ó¸é? (¿·À¸·Î ÇÇÇß°Å³ª, ¿ø·¡ ¾ÈÀüÇÏ´Ù¸é)
-            // ´Ù½Ã ÀÚµ¿À¸·Î ´Ş¸®±â ½ÃÀÛ!
+            // ì¶©ëŒ ìƒíƒœê°€ ì•„ë‹ˆë¼ë©´? (ì˜†ìœ¼ë¡œ í”¼í–ˆê±°ë‚˜, ì›ë˜ ì•ˆì „í•˜ë‹¤ë©´)
+            // ë‹¤ì‹œ ìë™ìœ¼ë¡œ ë‹¬ë¦¬ê¸° ì‹œì‘!
             isAutoMove = true;
         }
     }
 
-    // 1. ÀÚµ¿ ÀÌµ¿ ·ÎÁ÷
+    // 1. ìë™ ì´ë™ ë¡œì§
     if (isAutoMove) {
         tunnelOffsetZ += autoMoveSpeedPerFrame;
 
-        // ·Îº¿ ÆÈ´Ù¸® ¾Ö´Ï¸ŞÀÌ¼Ç
+        // ë¡œë´‡ íŒ”ë‹¤ë¦¬ ì• ë‹ˆë©”ì´ì…˜
         limbAngle += 2.0f * limbDir;
         if (limbAngle > 45.0f || limbAngle < -45.0f) {
             limbDir *= -1.0f;
@@ -1217,36 +1352,36 @@ void idle() {
         needRedisplay = true;
     }
     else {
-        // ¸ØÃçÀÖÀ» ¶§´Â Â÷·Ç
+        // ë©ˆì¶°ìˆì„ ë•ŒëŠ” ì°¨ë ·
         if (abs(limbAngle) > 0.1f) {
             limbAngle *= 0.9f;
             needRedisplay = true;
         }
     }
 
-    // --- ÄÚÀÎ È¸Àü °¢µµ ¾÷µ¥ÀÌÆ® (Ç×»ó »ìÂ¦¾¿ µ·´Ù) ---
-    coinRotateAngle += 1.0f;      // ÇÑ ÇÁ·¹ÀÓ´ç _µµ ¾¿ È¸Àü(¼ıÀÚ ³·Ãâ¼ö·Ï ´À¸®°Ô)
+    // --- ì½”ì¸ íšŒì „ ê°ë„ ì—…ë°ì´íŠ¸ (í•­ìƒ ì‚´ì§ì”© ëˆë‹¤) ---
+    coinRotateAngle += 1.0f;      // í•œ í”„ë ˆì„ë‹¹ _ë„ ì”© íšŒì „(ìˆ«ì ë‚®ì¶œìˆ˜ë¡ ëŠë¦¬ê²Œ)
     if (coinRotateAngle > 360.0f)
         coinRotateAngle -= 360.0f;
 
-    needRedisplay = true; // ÄÚÀÎ È¸Àü ¶§¹®¿¡ »õ·Î ±×¸®±â
+    needRedisplay = true; // ì½”ì¸ íšŒì „ ë•Œë¬¸ì— ìƒˆë¡œ ê·¸ë¦¬ê¸°
 
 
-    // 2. Á¡ÇÁ ¹× ÂøÁö ¹°¸® ·ÎÁ÷
+    // 2. ì í”„ ë° ì°©ì§€ ë¬¼ë¦¬ ë¡œì§
 
-    // ³» ¹ß ¹ØÀÇ ¸ñÇ¥ ¹Ù´Ú ³ôÀÌ¸¦ ±¸ÇÔ
+    // ë‚´ ë°œ ë°‘ì˜ ëª©í‘œ ë°”ë‹¥ ë†’ì´ë¥¼ êµ¬í•¨
     float currentGround = getGroundHeight();
 
-    // ÇÃ·¹ÀÌ¾î°¡ ¹Ù´Úº¸´Ù À§¿¡ ÀÖ°Å³ª, Á¡ÇÁ ÁßÀÌ¶ó¸é ¹°¸® Àû¿ë
+    // í”Œë ˆì´ì–´ê°€ ë°”ë‹¥ë³´ë‹¤ ìœ„ì— ìˆê±°ë‚˜, ì í”„ ì¤‘ì´ë¼ë©´ ë¬¼ë¦¬ ì ìš©
     if (jumpY > currentGround || isJumping) {
-        jumpY += jumpVelocity;      // À§Ä¡ ÀÌµ¿
-        jumpVelocity -= GRAVITY;    // Áß·Â Àû¿ë
+        jumpY += jumpVelocity;      // ìœ„ì¹˜ ì´ë™
+        jumpVelocity -= GRAVITY;    // ì¤‘ë ¥ ì ìš©
 
-        // ¹Ù´Ú(±âÂ÷ À§ È¤Àº ¶¥)¿¡ ´ê¾Ò´ÂÁö Ã¼Å©
+        // ë°”ë‹¥(ê¸°ì°¨ ìœ„ í˜¹ì€ ë•…)ì— ë‹¿ì•˜ëŠ”ì§€ ì²´í¬
         if (jumpY <= currentGround) {
-            jumpY = currentGround;   // ¹Ù´Ú ³ôÀÌ¿¡ °íÁ¤
-            isJumping = false;       // Á¡ÇÁ ³¡ (¶¥¿¡ ´êÀ½)
-            jumpVelocity = 0.0f;     // ¼Óµµ ÃÊ±âÈ­
+            jumpY = currentGround;   // ë°”ë‹¥ ë†’ì´ì— ê³ ì •
+            isJumping = false;       // ì í”„ ë (ë•…ì— ë‹¿ìŒ)
+            jumpVelocity = 0.0f;     // ì†ë„ ì´ˆê¸°í™”
         }
         else {
 
@@ -1254,13 +1389,13 @@ void idle() {
         }
         needRedisplay = true;
     }
-    // ±âÂ÷ À§¿¡ ÀÖ´Ù°¡ ±âÂ÷°¡ Áö³ª°¡¹ö·Á¼­ Çã°øÀÌ µÈ °æ¿ì Ã³¸®
+    // ê¸°ì°¨ ìœ„ì— ìˆë‹¤ê°€ ê¸°ì°¨ê°€ ì§€ë‚˜ê°€ë²„ë ¤ì„œ í—ˆê³µì´ ëœ ê²½ìš° ì²˜ë¦¬
     else if (jumpY > currentGround) {
-        isJumping = true; // ´Ù½Ã ¶³¾îÁö±â ½ÃÀÛÇØ¾ß ÇÔ
+        isJumping = true; // ë‹¤ì‹œ ë–¨ì–´ì§€ê¸° ì‹œì‘í•´ì•¼ í•¨
     }
 
 
-    // 3. ·¹ÀÎ º¯°æ ¾Ö´Ï¸ŞÀÌ¼Ç ·ÎÁ÷
+    // 3. ë ˆì¸ ë³€ê²½ ì• ë‹ˆë©”ì´ì…˜ ë¡œì§
     if (abs(playerX - targetPlayerX) > 0.001f) {
         if (playerX < targetPlayerX) {
             playerX += laneSwitchSpeed;
@@ -1273,11 +1408,11 @@ void idle() {
         needRedisplay = true;
     }
 
-    // ======== ÄÚÀÎ À§Ä¡/¸Ô±â ¾÷µ¥ÀÌÆ® ========
+    // ======== ì½”ì¸ ìœ„ì¹˜/ë¨¹ê¸° ì—…ë°ì´íŠ¸ ========
     updateCoins();
-    updateMagnets();  // ÀÚ¼® ¾÷µ¥ÀÌÆ®
+    updateMagnets();  // ìì„ ì—…ë°ì´íŠ¸
 
-    // --- ÀÚ¼® Å¸ÀÌ¸Ó °¨¼Ò ---
+    // --- ìì„ íƒ€ì´ë¨¸ ê°ì†Œ ---
     if (isMagnetActive) {
         magnetTimer -= deltaTime;
         if (magnetTimer <= 0.0f) {
@@ -1292,20 +1427,20 @@ void idle() {
 }
 
 
-// ----------------- ÀÏ¹İ Å°º¸µå ÀÔ·Â  ---------------------
+// ----------------- ì¼ë°˜ í‚¤ë³´ë“œ ì…ë ¥  ---------------------
 void keyboard(unsigned char key, int x, int y)
 {
     switch (key)
     {
     case 32:
-        if (!isJumping) // ÀÌ¹Ì Á¡ÇÁ ÁßÀÌ ¾Æ´Ò ¶§¸¸ Á¡ÇÁ °¡´É
+        if (!isJumping) // ì´ë¯¸ ì í”„ ì¤‘ì´ ì•„ë‹ ë•Œë§Œ ì í”„ ê°€ëŠ¥
         {
             isJumping = true;
-            jumpVelocity = JUMP_POWER; // À§·Î ¼Ú±¸Ä¡´Â Èû ºÎ¿©
+            jumpVelocity = JUMP_POWER; // ìœ„ë¡œ ì†Ÿêµ¬ì¹˜ëŠ” í˜ ë¶€ì—¬
         }
         break;
 
-        // ³ªÁß¿¡ 'q'¸¦ ´­·¯ Á¾·áÇÏ´Â ±â´É µîÀ» ¿©±â¿¡ Ãß°¡ÇÒ ¼ö ÀÖ½À´Ï´Ù.
+        // ë‚˜ì¤‘ì— 'q'ë¥¼ ëˆŒëŸ¬ ì¢…ë£Œí•˜ëŠ” ê¸°ëŠ¥ ë“±ì„ ì—¬ê¸°ì— ì¶”ê°€í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
     case 'q':
     case 'Q':
     case 27: // ESC key
@@ -1314,43 +1449,43 @@ void keyboard(unsigned char key, int x, int y)
     }
 }
 
-// ----------------- Å°º¸µå ÀÔ·Â ---------------------
-// +++ Å°º¸µå Äİ¹é ÇÔ¼ö Ãß°¡ +++
+// ----------------- í‚¤ë³´ë“œ ì…ë ¥ ---------------------
+// +++ í‚¤ë³´ë“œ ì½œë°± í•¨ìˆ˜ ì¶”ê°€ +++
 void specialKeyboard(int key, int x, int y)
 {
     switch (key)
     {
-    case GLUT_KEY_UP: // 'Page Up' Å°
+    case GLUT_KEY_UP: // 'Page Up' í‚¤
         if (!isGameStarted) {
             isGameStarted = true;
             isAutoMove = true;
         }
         break;
-    case GLUT_KEY_DOWN: // 'DOWN' È­»ìÇ¥ Å°
+    case GLUT_KEY_DOWN: // 'DOWN' í™”ì‚´í‘œ í‚¤
         if (isGameStarted) {
             isSliding = true;
         }
         break;
     case GLUT_KEY_LEFT:
-        // ¿ŞÂÊ ³¡(-1)ÀÌ ¾Æ´Ò ¶§¸¸ ¿ŞÂÊÀ¸·Î ÇÑ Ä­ ÀÌµ¿ ¸í·É
+        // ì™¼ìª½ ë(-1)ì´ ì•„ë‹ ë•Œë§Œ ì™¼ìª½ìœ¼ë¡œ í•œ ì¹¸ ì´ë™ ëª…ë ¹
         if (currentLane > -1) {
-            currentLane--; // -1 °¨¼Ò
-            targetPlayerX = currentLane * LANE_WIDTH; // ¸ñÇ¥ À§Ä¡ Àç¼³Á¤ (-0.5 or 0.0)
+            currentLane--; // -1 ê°ì†Œ
+            targetPlayerX = currentLane * LANE_WIDTH; // ëª©í‘œ ìœ„ì¹˜ ì¬ì„¤ì • (-0.5 or 0.0)
         }
         break;
 
     case GLUT_KEY_RIGHT:
-        // ¿À¸¥ÂÊ ³¡(1)ÀÌ ¾Æ´Ò ¶§¸¸ ¿À¸¥ÂÊÀ¸·Î ÇÑ Ä­ ÀÌµ¿ ¸í·É
+        // ì˜¤ë¥¸ìª½ ë(1)ì´ ì•„ë‹ ë•Œë§Œ ì˜¤ë¥¸ìª½ìœ¼ë¡œ í•œ ì¹¸ ì´ë™ ëª…ë ¹
         if (currentLane < 1) {
-            currentLane++; // +1 Áõ°¡
-            targetPlayerX = currentLane * LANE_WIDTH; // ¸ñÇ¥ À§Ä¡ Àç¼³Á¤ (0.0 or 0.5)
+            currentLane++; // +1 ì¦ê°€
+            targetPlayerX = currentLane * LANE_WIDTH; // ëª©í‘œ ìœ„ì¹˜ ì¬ì„¤ì • (0.0 or 0.5)
         }
         break;
 
     }
 
 
-    // È­¸éÀ» °»½ÅÇÏµµ·Ï ¿äÃ»
+    // í™”ë©´ì„ ê°±ì‹ í•˜ë„ë¡ ìš”ì²­
     glutPostRedisplay();
 }
 
@@ -1358,7 +1493,7 @@ void specialKeyboard(int key, int x, int y)
 void specialKeyboardUp(int key, int x, int y) {
     switch (key) {
     case GLUT_KEY_DOWN:
-        // Å°¸¦ ¶¼¸é ½½¶óÀÌµù ³¡! (ÀÏ¾î³²)
+        // í‚¤ë¥¼ ë–¼ë©´ ìŠ¬ë¼ì´ë”© ë! (ì¼ì–´ë‚¨)
         isSliding = false;
         break;
     }
@@ -1366,64 +1501,64 @@ void specialKeyboardUp(int key, int x, int y) {
 
 
 
-// ·Îº¿ ±×¸®±â ÇÔ¼ö
+// ë¡œë´‡ ê·¸ë¦¬ê¸° í•¨ìˆ˜
 void drawRobot(float x, float y, float z) {
-    // ·Îº¿ÀÇ ±âº» À§Ä¡ ¼³Á¤
+    // ë¡œë´‡ì˜ ê¸°ë³¸ ìœ„ì¹˜ ì„¤ì •
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(x, y, z));
 
-    // ¡Ú ½½¶óÀÌµù Ã³¸® ¡Ú
+    // â˜… ìŠ¬ë¼ì´ë”© ì²˜ë¦¬ â˜…
     if (isSliding) {
-        // 1. µÚ·Î ´¯±â (-90µµ XÃà È¸Àü)
+        // 1. ë’¤ë¡œ ëˆ•ê¸° (-90ë„ Xì¶• íšŒì „)
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        // 2. ´©¿ì¸é Áß½ÉÃàÀÌ ¹Ù²î¹Ç·Î À§Ä¡¸¦ »ìÂ¦ ¾Æ·¡/µÚ·Î Á¶Á¤
+        // 2. ëˆ„ìš°ë©´ ì¤‘ì‹¬ì¶•ì´ ë°”ë€Œë¯€ë¡œ ìœ„ì¹˜ë¥¼ ì‚´ì§ ì•„ë˜/ë’¤ë¡œ ì¡°ì •
         model = glm::translate(model, glm::vec3(0.0f, -0.2f, -0.3f));
     }
     else {
 
-        // ·Îº¿ÀÌ µÚ(Z-)¸¦ º¸°í ÀÖÀ¸¹Ç·Î 180µµ È¸Àü (ÇÃ·¹ÀÌ¾î ½ÃÁ¡)
-        // ÇÊ¿ä¿¡ µû¶ó °¢µµ Á¶Àı: glm::radians(180.0f)
+        // ë¡œë´‡ì´ ë’¤(Z-)ë¥¼ ë³´ê³  ìˆìœ¼ë¯€ë¡œ 180ë„ íšŒì „ (í”Œë ˆì´ì–´ ì‹œì )
+        // í•„ìš”ì— ë”°ë¼ ê°ë„ ì¡°ì ˆ: glm::radians(180.0f)
         model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     }
     model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
 
-    // 1. ¸öÅë
+    // 1. ëª¸í†µ
     glm::mat4 bodyM = glm::scale(model, glm::vec3(0.4f, 0.5f, 0.2f));
-    drawColoredCube(bodyM, glm::vec3(0.0f, 0.0f, 1.0f)); // ÆÄ¶û
+    drawColoredCube(bodyM, glm::vec3(0.0f, 0.0f, 1.0f)); // íŒŒë‘
 
-    // 2. ¸Ó¸®
+    // 2. ë¨¸ë¦¬
     glm::mat4 headM = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
     glm::mat4 headScaleM = glm::scale(headM, glm::vec3(0.3f, 0.3f, 0.3f));
-    drawColoredCube(headScaleM, glm::vec3(1.0f, 0.8f, 0.6f)); // »ì»ö
+    drawColoredCube(headScaleM, glm::vec3(1.0f, 0.8f, 0.6f)); // ì‚´ìƒ‰
 
-    // 3. ÄÚ (»¡°­)
-    glm::mat4 noseM = glm::translate(headM, glm::vec3(0.0f, 0.0f, 0.18f)); // ¾à°£ ¾ÕÀ¸·Î »­
+    // 3. ì½” (ë¹¨ê°•)
+    glm::mat4 noseM = glm::translate(headM, glm::vec3(0.0f, 0.0f, 0.18f)); // ì•½ê°„ ì•ìœ¼ë¡œ ëºŒ
     noseM = glm::scale(noseM, glm::vec3(0.05f, 0.05f, 0.05f));
     drawColoredCube(noseM, glm::vec3(1.0f, 0.0f, 0.0f));
 
-    // ÆÈ´Ù¸® ¿òÁ÷ÀÓ °¢µµ
+    // íŒ”ë‹¤ë¦¬ ì›€ì§ì„ ê°ë„
     float swing = glm::radians(limbAngle);
 
-    // 4. ¿ŞÆÈ (³ë¶û)
+    // 4. ì™¼íŒ” (ë…¸ë‘)
     glm::mat4 lArmM = glm::translate(model, glm::vec3(-0.3f, 0.15f, 0.0f));
-    lArmM = glm::rotate(lArmM, swing, glm::vec3(1.0f, 0.0f, 0.0f)); // È¸Àü
-    lArmM = glm::translate(lArmM, glm::vec3(0.0f, -0.2f, 0.0f)); // È¸ÀüÃà ¾Æ·¡·Î ³»¸®±â
+    lArmM = glm::rotate(lArmM, swing, glm::vec3(1.0f, 0.0f, 0.0f)); // íšŒì „
+    lArmM = glm::translate(lArmM, glm::vec3(0.0f, -0.2f, 0.0f)); // íšŒì „ì¶• ì•„ë˜ë¡œ ë‚´ë¦¬ê¸°
     drawColoredCube(glm::scale(lArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(1.0f, 1.0f, 0.0f));
 
-    // 5. ¿À¸¥ÆÈ (ÃÊ·Ï)
+    // 5. ì˜¤ë¥¸íŒ” (ì´ˆë¡)
     glm::mat4 rArmM = glm::translate(model, glm::vec3(0.3f, 0.15f, 0.0f));
     rArmM = glm::rotate(rArmM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));
     rArmM = glm::translate(rArmM, glm::vec3(0.0f, -0.2f, 0.0f));
     drawColoredCube(glm::scale(rArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    // 6. ¿Ş´Ù¸® (È¸»ö + º¸¶ó »ìÂ¦ ¼¯ÀÎ »öÀ¸·Î ¹Ù²Ù¼Ì³×¿ä)
-    glm::mat4 lLegM = glm::translate(model, glm::vec3(-0.12f, -0.25f, 0.0f)); // 1. ¾ûµ¢ÀÌ À§Ä¡·Î ÀÌµ¿
-    lLegM = glm::rotate(lLegM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));          // 2. È¸Àü
+    // 6. ì™¼ë‹¤ë¦¬ (íšŒìƒ‰ + ë³´ë¼ ì‚´ì§ ì„ì¸ ìƒ‰ìœ¼ë¡œ ë°”ê¾¸ì…¨ë„¤ìš”)
+    glm::mat4 lLegM = glm::translate(model, glm::vec3(-0.12f, -0.25f, 0.0f)); // 1. ì—‰ë©ì´ ìœ„ì¹˜ë¡œ ì´ë™
+    lLegM = glm::rotate(lLegM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));          // 2. íšŒì „
 
     lLegM = glm::translate(lLegM, glm::vec3(0.0f, -0.15f, 0.0f));
     drawColoredCube(glm::scale(lLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.5f, 0.3f, 0.5f));
 
-    // 7. ¿À¸¥´Ù¸®
+    // 7. ì˜¤ë¥¸ë‹¤ë¦¬
     glm::mat4 rLegM = glm::translate(model, glm::vec3(0.12f, -0.25f, 0.0f));
     rLegM = glm::rotate(rLegM, swing, glm::vec3(1.0f, 0.0f, 0.0f));
 
@@ -1431,15 +1566,15 @@ void drawRobot(float x, float y, float z) {
     drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.3f, 0.3f, 0.3f));
 }
 
-// -----------------·»´õ¸µ---------------------
+// -----------------ë Œë”ë§---------------------
 
-// --- Ãß°¡ --- ÄÚÀÎ °³¼ö UI ±×¸®±â (ÁÂÃø »ó´Ü)
+// --- ì¶”ê°€ --- ì½”ì¸ ê°œìˆ˜ UI ê·¸ë¦¬ê¸° (ì¢Œì¸¡ ìƒë‹¨)
 void drawCoinUI() {
-    // ¼ÎÀÌ´õ Àá±ñ ²ô±â
+    // ì…°ì´ë” ì ê¹ ë„ê¸°
     glUseProgram(0);
     glDisable(GL_DEPTH_TEST);
 
-    // 2D ¿À½î±×·¡ÇÈ Åõ¿µ ¼³Á¤
+    // 2D ì˜¤ì˜ê·¸ë˜í”½ íˆ¬ì˜ ì„¤ì •
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -1451,14 +1586,14 @@ void drawCoinUI() {
 
     std::string text = "Coins: " + std::to_string(coinCount);
 
-    glColor3f(0.0f, 0.0f, 0.0f); // °ËÁ¤»ö
-    glRasterPos2i(10, gHeight - 30); // ÁÂÃø »ó´Ü
+    glColor3f(0.0f, 0.0f, 0.0f); // ê²€ì •ìƒ‰
+    glRasterPos2i(10, gHeight - 30); // ì¢Œì¸¡ ìƒë‹¨
 
     for (char c : text) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
     }
 
-    // »óÅÂ º¹±¸
+    // ìƒíƒœ ë³µêµ¬
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
@@ -1473,14 +1608,14 @@ void Display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
     //Mat4 view = identity();
-    //--- Ä«¸Ş¶ó(View)¿Í ¿ø±Ù(Projection) ¼³Á¤ ---
+    //--- ì¹´ë©”ë¼(View)ì™€ ì›ê·¼(Projection) ì„¤ì • ---
     Mat4 viewTranslate = translate(0.0f, -0.9f, -1.0f);
 
-    // 2. Ä«¸Ş¶ó °¢µµ È¸Àü (XÃà È¸Àü)
-    // 20µµ Á¤µµ °í°³¸¦ ¼÷¿©¼­ ¹Ù´ÚÀ» ¹Ù¶óº½
+    // 2. ì¹´ë©”ë¼ ê°ë„ íšŒì „ (Xì¶• íšŒì „)
+    // 20ë„ ì •ë„ ê³ ê°œë¥¼ ìˆ™ì—¬ì„œ ë°”ë‹¥ì„ ë°”ë¼ë´„
     Mat4 viewRotate = rotateX(20.0f * 3.14159f / 180.0f);
 
-    // 3. Çà·Ä ÇÕÄ¡±â (È¸Àü * ÀÌµ¿)
+    // 3. í–‰ë ¬ í•©ì¹˜ê¸° (íšŒì „ * ì´ë™)
     Mat4 view = multifly(viewRotate, viewTranslate);
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
 
@@ -1490,17 +1625,17 @@ void Display() {
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
-    // ÅØ½ºÃ³/»ö»ó »ç¿ë ÇÃ·¡±× À¯´ÏÆû
+    // í…ìŠ¤ì²˜/ìƒ‰ìƒ ì‚¬ìš© í”Œë˜ê·¸ ìœ ë‹ˆí¼
     GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
 
-    // ¹à±â À¯´ÏÆû À§Ä¡ ÇÑ ¹ø ±¸ÇØµÎ±â 
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
+    // ë°ê¸° ìœ ë‹ˆí¼ ìœ„ì¹˜ í•œ ë²ˆ êµ¬í•´ë‘ê¸° 
+    // --- í„°ë„ ê·¸ë¦¬ê¸° (íë¸Œ ë²½ë©´ ë°˜ë³µ) ---
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
 
-    // --- ÅÍ³Î ±×¸®±â (Å¥ºê º®¸é ¹İº¹) ---
-    int tunnelSegments = 300; // ÅÍ³Î ±æÀÌ
-    float tunnelScaleXY = 2.0f; // ÅÍ³Î ³Êºñ/³ôÀÌ ¹èÀ² (2¹è)
+    // --- í„°ë„ ê·¸ë¦¬ê¸° (íë¸Œ ë²½ë©´ ë°˜ë³µ) ---
+    int tunnelSegments = 300; // í„°ë„ ê¸¸ì´
+    float tunnelScaleXY = 2.0f; // í„°ë„ ë„ˆë¹„/ë†’ì´ ë°°ìœ¨ (2ë°°)
 
     for (int i = 0; i < tunnelSegments; i++)
     {
@@ -1514,63 +1649,63 @@ void Display() {
         glUniform1f(locBrightness, brightness);
 
         // ==============================
-        // 1) ¼±·Î ¹Ù´Ú(¾Æ·§¸é)¿¡ tile.bmp ÅØ½ºÃ³
+        // 1) ì„ ë¡œ ë°”ë‹¥(ì•„ë«ë©´)ì— tile.bmp í…ìŠ¤ì²˜
         // ==============================
-        glUniform1i(locUseTexture, 1);          // ÅØ½ºÃ³ »ç¿ë
-        glUniform1i(locUseObjectColor, 0);      // »ö»ó À¯´ÏÆûÀº ²ô±â
+        glUniform1i(locUseTexture, 1);          // í…ìŠ¤ì²˜ ì‚¬ìš©
+        glUniform1i(locUseObjectColor, 0);      // ìƒ‰ìƒ ìœ ë‹ˆí¼ì€ ë„ê¸°
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, floorTexID);
-        drawCubeFace(2);                        // ¾Æ·§¸é¸¸ ÅØ½ºÃ³·Î ±×¸²
+        drawCubeFace(2);                        // ì•„ë«ë©´ë§Œ í…ìŠ¤ì²˜ë¡œ ê·¸ë¦¼
 
         // ==============================
-        // 2) º®¸éÀº ±âÁ¸Ã³·³ »ö/¹à±â·Î¸¸
+        // 2) ë²½ë©´ì€ ê¸°ì¡´ì²˜ëŸ¼ ìƒ‰/ë°ê¸°ë¡œë§Œ
         // ==============================
-        glUniform1i(locUseTexture, 0);          // ÅØ½ºÃ³ ²¨µÎ±â (fragment.glslÀÌ »ö/Á¶¸í »ç¿ëÇÏ°Ô)
+        glUniform1i(locUseTexture, 0);          // í…ìŠ¤ì²˜ êº¼ë‘ê¸° (fragment.glslì´ ìƒ‰/ì¡°ëª… ì‚¬ìš©í•˜ê²Œ)
 
-        drawCubeFace(4); // ¿ŞÂÊ ¸é
-        drawCubeFace(5); // ¿À¸¥ÂÊ ¸é
+        drawCubeFace(4); // ì™¼ìª½ ë©´
+        drawCubeFace(5); // ì˜¤ë¥¸ìª½ ë©´
     }
 
-    // ¡Ú ÅÍ³Î ¹Ù´Ú À§¿¡ Ä§¸ñ ¸ÕÀú ±ò±â
+    // â˜… í„°ë„ ë°”ë‹¥ ìœ„ì— ì¹¨ëª© ë¨¼ì € ê¹”ê¸°
     drawWoodPlanks();
 
-    drawTrains();//±âÂ÷ ±×¸®±â
-    drawCoins(); // ÄÚÀÎ ±×¸®±â
-    drawMagnets();  // ÀÚ¼® ±×¸®±â
+    drawTrains();//ê¸°ì°¨ ê·¸ë¦¬ê¸°
+    drawCoins(); // ì½”ì¸ ê·¸ë¦¬ê¸°
+    drawMagnets();  // ìì„ ê·¸ë¦¬ê¸°
 
-    // +++ ÇÃ·¹ÀÌ¾î Å¥ºê ±×¸®±â +++
+    // +++ í”Œë ˆì´ì–´ íë¸Œ ê·¸ë¦¬ê¸° +++
 
-    // 1. Model Çà·Ä °è»ê:
+    // 1. Model í–‰ë ¬ ê³„ì‚°:
 
-    // [»õ·Î¿î ·Îº¿ ÄÚµå]
-    // Y À§Ä¡ °è»ê (±âÁ¸ ·ÎÁ÷ À¯Áö + Á¡ÇÁ Àû¿ë)
-    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f; // ¹ß¹Ù´Ú À§Ä¡ º¸Á¤
-    float finalPlayerY = basePlayerY + jumpY;    // 0.2f´Â ·Îº¿ÀÌ ¹Ù´Ú¿¡ ¹ÚÈ÷Áö ¾Ê°Ô ¾à°£ ¶ç¿ò
+    // [ìƒˆë¡œìš´ ë¡œë´‡ ì½”ë“œ]
+    // Y ìœ„ì¹˜ ê³„ì‚° (ê¸°ì¡´ ë¡œì§ ìœ ì§€ + ì í”„ ì ìš©)
+    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f; // ë°œë°”ë‹¥ ìœ„ì¹˜ ë³´ì •
+    float finalPlayerY = basePlayerY + jumpY;    // 0.2fëŠ” ë¡œë´‡ì´ ë°”ë‹¥ì— ë°•íˆì§€ ì•Šê²Œ ì•½ê°„ ë„ì›€
 
 
     drawRobot(playerX, finalPlayerY, playerZ);
 
 
-    // --- Ãß°¡ --- 3·¹ÀÎ ½ºÆ®¸³ ±×¸®±â ---
-       // ¹Ù´ÚÀ» 3µîºĞÇÏ´Â ¼¼·Î ¶óÀÎ 2°³ ±×¸®±â
+    // --- ì¶”ê°€ --- 3ë ˆì¸ ìŠ¤íŠ¸ë¦½ ê·¸ë¦¬ê¸° ---
+       // ë°”ë‹¥ì„ 3ë“±ë¶„í•˜ëŠ” ì„¸ë¡œ ë¼ì¸ 2ê°œ ê·¸ë¦¬ê¸°
     {
-        // ±âÁØ model: ´ÜÀ§Çà·Ä (¶óÀÎ ÀÚÃ¼°¡ ÀÌ¹Ì z·Î ±æ°Ô ¸¸µé¾îÁ® ÀÖÀ½)
+        // ê¸°ì¤€ model: ë‹¨ìœ„í–‰ë ¬ (ë¼ì¸ ìì²´ê°€ ì´ë¯¸ zë¡œ ê¸¸ê²Œ ë§Œë“¤ì–´ì ¸ ìˆìŒ)
         Mat4 model = identity();
 
-        // 1) ¿ŞÂÊ °æ°è¼±
+        // 1) ì™¼ìª½ ê²½ê³„ì„ 
         Mat4 leftLine = model;
-        leftLine.m[12] = -0.25f;          // x ÀÌµ¿ => °ªÀÌ ÀÛÀ»¼ö·Ï °¡¿îµ¥ Á¼¾ÆÁü
+        leftLine.m[12] = -0.25f;          // x ì´ë™ => ê°’ì´ ì‘ì„ìˆ˜ë¡ ê°€ìš´ë° ì¢ì•„ì§
         glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
         //drawLaneLine();
 
-        // 2) ¿À¸¥ÂÊ °æ°è¼±
+        // 2) ì˜¤ë¥¸ìª½ ê²½ê³„ì„ 
         Mat4 rightLine = model;
         rightLine.m[12] = 0.25f;
         glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
         //drawLaneLine();
     }
-    drawCoinUI(); // ÄÚÀÎ UI ±×¸®±â
+    drawCoinUI(); // ì½”ì¸ UI ê·¸ë¦¬ê¸°
 
     glutSwapBuffers();
 }
@@ -1581,14 +1716,14 @@ int main(int argc, char** argv)
 
     srand((unsigned)time(NULL));
 
-    //À©µµ¿ì »ı¼ºÇÏ±â
+    //ìœˆë„ìš° ìƒì„±í•˜ê¸°
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ±íÀÌ ¹öÆÛ Ãß°¡
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // ê¹Šì´ ë²„í¼ ì¶”ê°€
     glutInitWindowPosition(0, 0);
     glutInitWindowSize(800, 800);
-    glutCreateWindow("ÄÄ±× ÇÁ·ÎÁ§Æ®");
+    glutCreateWindow("ì»´ê·¸ í”„ë¡œì íŠ¸");
 
-    //GLEW ÃÊ±âÈ­ÇÏ±â
+    //GLEW ì´ˆê¸°í™”í•˜ê¸°
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
     {
@@ -1599,7 +1734,7 @@ int main(int argc, char** argv)
         std::cout << "GLEW Initialized\n";
 
 
-    //¼¼ÀÌ´õ ÀĞ¾î¿Í¼­ ¼¼ÀÌ´õ ÇÁ·Î±×·¥ ¸¸µé±â 
+    //ì„¸ì´ë” ì½ì–´ì™€ì„œ ì„¸ì´ë” í”„ë¡œê·¸ë¨ ë§Œë“¤ê¸° 
     make_vertexShaders();
     make_fragmentShaders();
 
@@ -1609,22 +1744,25 @@ int main(int argc, char** argv)
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
-    setupCubeVAOs(); // Å¥ºê ±×¸²
-    setupCoinVAO();  // ÄÚÀÎ ¿øÆÇ VAO ¼³Á¤
-    // 1. ¿·¸é (subway1.bmp) -> trainSideTexID¿¡ ÀúÀå
+    setupCubeVAOs(); // íë¸Œ ê·¸ë¦¼
+    setupCoinVAO();  // ì½”ì¸ ì›íŒ VAO ì„¤ì •
+    // 1. ì˜†ë©´ (subway1.bmp) -> trainSideTexIDì— ì €ì¥
     makeTexture("subway1.bmp", &trainSideTexID);
 
-    // 2. ¾Õ¸é (subway2.bmp) -> trainFrontTexID¿¡ ÀúÀå
+    // 2. ì•ë©´ (subway2.bmp) -> trainFrontTexIDì— ì €ì¥
     makeTexture("subway2.bmp", &trainFrontTexID);
 
-    // 3. À­¸é (subway3.bmp) -> trainTopTexID¿¡ ÀúÀå
+    // 3. ìœ—ë©´ (subway3.bmp) -> trainTopTexIDì— ì €ì¥
     makeTexture("subway3.bmp", &trainTopTexID);
 
-    // 4. ¼±·Î ¹Ù´Ú ÅØ½ºÃ³ (tile.bmp) -> floorTexID¿¡ ÀúÀå
+    // 4. ì„ ë¡œ ë°”ë‹¥ í…ìŠ¤ì²˜ (tile.bmp) -> floorTexIDì— ì €ì¥
     makeTexture("tile.bmp", &floorTexID);
 
+    // 5. ì½”ì¸ í…ìŠ¤ì²˜
+    makeTexture("coin_f.bmp", &coinTexID);
+
     initTrains();
-    initCoins(); // ÄÚÀÎ ÃÊ±âÈ­
+    initCoins(); // ì½”ì¸ ì´ˆê¸°í™”
 
     initMagnets();
 
