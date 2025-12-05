@@ -61,7 +61,7 @@ GLuint trainTopTexID;
 GLuint floorTexID;   // 선로 바닥(tile.bmp)용 텍스처
 GLuint coinTexID;    // 코인(coin_f.bmp) 텍스처
 GLuint grassTexID; // 잔디 텍스처 ID
-
+GLuint boosterTexID; // 부스터(booster.bmp) 텍스처
 //=======================================
 //건물 관련 변수
 GLuint buildingTexIDs[3]; // 건물 텍스처 ID 3개를 담을 배열
@@ -84,12 +84,31 @@ float tunnelOffsetZ = 0.0f;
 
 //자동 이동되는 변수 추가
 bool isAutoMove = false;
-float autoMoveSpeedPerFrame = 0.08f;
-// --- 충돌 후 슬로우 효과용 변수 ---
+
+// 기본 / 감속 / 부스터 속도 상수
 const float NORMAL_AUTO_SPEED = 0.05f;  // 평소 속도
-const float SLOW_AUTO_SPEED = 0.02f;  // 느려진 속도
+const float SLOW_AUTO_SPEED = 0.02f;  // 충돌 후 느려진 속도
+const float BOOSTER_AUTO_SPEED = 0.1f;   // 부스터 테스트용 속도
+
+float autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
+
+// 충돌 후 3초 느려지는 모드
+bool  isSlowMode = false;
+float slowTimer = 0.0f;
+const float SLOW_DURATION = 3.0f;   // 3초
+
+// 부스터(무적 + 속도업) 상태
+bool  isBoosterActive = false;
+float boosterTimer = 0.0f;
+const float BOOSTER_DURATION = 3.0f;   // 3초
+
+// --- 충돌 후 슬로우 효과용 변수 ---
 bool  isSpeedSlowed = false;          // 지금 슬로우 상태인지?
 float speedSlowTimer = 0.0f;           // 남은 시간(초)
+//// --- 부스터용 기본/부스트 속도 ---
+//float normalAutoSpeed = 0.05f;  // 기본 자동 이동 속도
+//float boostedAutoSpeed = 1.5f;  // 부스터 먹었을 때 속도 (원하면 값 조절)
+
 
 // [로봇 애니메이션용 전역 변수 추가]
 float limbAngle = 0.0f;   // 팔다리 각도
@@ -169,6 +188,20 @@ const float MAGNET_DURATION = 5.0f;  // 5초 동안 유지
 int   prevTime = 0;                 // 이전 프레임 시간(ms)
 float deltaTime = 0.0f;             // 지난 프레임에서 지난 시간(초)
 
+// ------------ 부스터(Booster) 아이템 ------------
+
+struct Booster {
+    int lane;       // -1, 0, 1
+    float zPos;     // 트랙상의 위치
+    bool collected; // 먹었는지 여부
+};
+
+std::vector<Booster> boosters;
+
+//// 부스터 활성화 상태
+//bool  isBoosterActive = false;
+//float boosterTimer = 0.0f;                 // 남은 시간(초)
+//const float BOOSTER_DURATION = 5.0f;       // 5초 동안 유지
 
 
 //---------------------------------------------------
@@ -783,6 +816,40 @@ void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
     glBindVertexArray(0);
     glUniform1i(locUseObjectColor, 0); // 상태 원복
 }
+// ------------------------------------------------------
+// 부스터 메쉬 (코인 VAO 재사용 + boosterTexID 사용)
+// ------------------------------------------------------
+void drawBoosterMesh(glm::mat4 modelMatrix, glm::vec3 color) {
+    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
+    GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
+    GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
+    GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
+
+    glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+    glBindVertexArray(vaoCoin);
+
+    // 1) 앞면 + 2) 뒷면 : booster 텍스처 사용
+    glUniform1i(locUseTexture, 1);
+    glUniform1i(locUseObjectColor, 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, boosterTexID);
+
+    glDrawArrays(GL_TRIANGLE_FAN, 0, COIN_FRONT_COUNT);                   // 앞면
+    glDrawArrays(GL_TRIANGLE_FAN, COIN_FRONT_COUNT, COIN_BACK_COUNT);     // 뒷면
+
+    // 3) 옆면(두께) : 단색
+    glUniform1i(locUseTexture, 0);
+    glUniform1i(locUseObjectColor, 1);
+    glUniform3f(locObjectColor, color.r, color.g, color.b);
+
+    glDrawArrays(GL_TRIANGLES,
+        COIN_FRONT_COUNT + COIN_BACK_COUNT,
+        COIN_SIDE_COUNT);
+
+    glBindVertexArray(0);
+    glUniform1i(locUseObjectColor, 0);
+}
 
 // ------------------------------------------------------
 // ------------------------------------------------------
@@ -977,6 +1044,51 @@ void initMagnets() {
     }
 }
 
+// ------------ 부스터 초기화 ------------
+void initBoosters() {
+    boosters.clear();
+
+    float startZ = -40.0f;   // 플레이어 기준 앞쪽
+    float gapZ = 100.0f;   // 부스터 간 간격
+    int   count = 5;        // 전체 부스터 개수
+
+    for (int i = 0; i < count; i++) {
+        Booster b;
+        b.zPos = startZ - i * gapZ;
+        b.collected = false;
+
+        bool conflict;
+        int  safety = 0;
+
+        do {
+            conflict = false;
+
+            // -1, 0, 1 중 하나 랜덤 레인 선택
+            b.lane = (rand() % 3) - 1;
+
+            // 이미 생성된 자석들과 겹치는지 검사
+            for (size_t j = 0; j < magnets.size(); j++) {
+                // 같은 레인이고, Z위치가 너무 가까우면 겹친다고 판단
+                if (magnets[j].lane == b.lane) {
+                    float dz = magnets[j].zPos - b.zPos;
+                    if (dz < 0) dz = -dz;
+
+                    // 이 값(예: 10.0f)은 "같은 위치"로 볼 거리 기준, 필요하면 조절 가능
+                    if (dz < 10.0f) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+
+            safety++;
+        } while (conflict && safety < 10);
+
+        boosters.push_back(b);
+    }
+}
+
+
 //===============================================
 //건물 초기화
 
@@ -1036,6 +1148,11 @@ float getGroundHeight() {
 
 
 bool checkCollision() {
+
+    // 부스터가 켜져 있으면 장애물/기차 충돌을 모두 무시 (무적)
+    if (isBoosterActive)
+        return false;
+
     float tHeight = 0.8f;      // 기차 높이
     float tLength = 15.0f;     // 기차 길이
     float collisionWidth = 0.4f; // 충돌 너비
@@ -1167,6 +1284,53 @@ void updateMagnets() {
             magnets[i].collected = true;
             isMagnetActive = true;
             magnetTimer = MAGNET_DURATION;
+        }
+    }
+}
+
+// ------------------------------------------------------
+// 부스터 위치 업데이트 + 먹었는지 체크
+// ------------------------------------------------------
+void updateBoosters() {
+    float collisionWidth = 0.4f;   // X 충돌 허용
+    float collisionLength = 0.7f;   // Z 충돌 허용
+    float loopDistance = 50.0f * 40.0f; // 트랙 길이 (기차랑 동일)
+
+    // 자석이 켜져 있을 때 부스터도 같이 끌어오기 위한 추가 범위
+    float extraX = 0.0f;
+    float extraZ = 0.0f;
+    if (isMagnetActive) {
+        extraX = 1.5f;   // 코인과 동일하게 옆·앞·뒤 범위 늘리기
+        extraZ = 1.5f;
+    }
+
+    for (int i = 0; i < boosters.size(); i++) {
+        float currentZ = boosters[i].zPos + tunnelOffsetZ;
+
+        // 화면 뒤로 나가면 뒤로 보내기
+        if (currentZ > 5.0f) {
+            boosters[i].zPos -= loopDistance;
+            boosters[i].collected = false;
+            continue;
+        }
+
+        if (boosters[i].collected) continue;
+
+        float bX = boosters[i].lane * LANE_WIDTH;
+
+        // 자석이 켜져 있으면 더 넓은 범위에서 부스터를 '먹음'
+        bool inX = fabs(playerX - bX) < (collisionWidth + extraX);
+        bool inZ = fabs(playerZ - currentZ) < (collisionLength + extraZ);
+
+        if (inX && inZ) {
+            boosters[i].collected = true;
+
+            // 부스터 효과 ON
+            isBoosterActive = true;
+            boosterTimer = BOOSTER_DURATION;
+
+            autoMoveSpeedPerFrame = BOOSTER_AUTO_SPEED;
+            isSlowMode = false;
         }
     }
 }
@@ -1363,6 +1527,39 @@ void drawMagnets() {
     }
 }
 
+// ------------------------------------------------------
+// 부스터 그리기
+// ------------------------------------------------------
+void drawBoosters() {
+    float boosterY = -1.0f + 0.5f;  // 코인과 비슷한 높이
+    float baseScale = 0.35f;
+    float loopDistance = 100 * 25.0f;
+    float gateZ = tunnelOffsetZ - finishDistance;
+
+    for (int i = 0; i < boosters.size(); i++) {
+        float currentZ = boosters[i].zPos + tunnelOffsetZ;
+
+        if (currentZ < gateZ) continue;
+        if (currentZ > 5.0f) {
+            boosters[i].zPos -= loopDistance;
+            boosters[i].collected = false;
+            continue;
+        }
+
+        if (boosters[i].collected) continue;
+
+        float x = boosters[i].lane * LANE_WIDTH;
+
+        glm::mat4 m = glm::mat4(1.0f);
+        m = glm::translate(m, glm::vec3(x, boosterY, currentZ));
+        m = glm::scale(m, glm::vec3(baseScale));
+
+        // 옆면 컬러는 빨간색
+        drawBoosterMesh(m, glm::vec3(1.0f, 0.0f, 0.f));
+    }
+}
+
+
 
 // ------------------------------------------------------
 // 레일 위 나무 침목(큐브) 그리기
@@ -1459,27 +1656,28 @@ void idle() {
         // =========================================================
         // 
         // 
-        // ★ 충돌 체크 로직 ★ (충돌하면 1.5초간 슬로우 유지)
+        // ★ 충돌 / 슬로우 / 부스터 처리 ★
         if (isGameStarted) {
-            if (checkCollision()) {
-                // 충돌 상태: 살짝 뒤로 밀리고, 1.5초 동안 속도 느려짐
-                tunnelOffsetZ -= 0.2f;    // 살짝 밀리는 느낌 (원하면 줄이거나 빼도 됨)
 
-                isAutoMove = true;        // 멈추지 말고 계속 전진
-                isSpeedSlowed = true;    // 슬로우 상태 진입
-                speedSlowTimer = 1.5f;    // 1.5초 유지
-                autoMoveSpeedPerFrame = SLOW_AUTO_SPEED;  // 느려진 속도로 변경
+            // 부스터 중에는 충돌 자체를 무시 (완전 무적)
+            if (!isBoosterActive && checkCollision()) {
+                // 충돌했다 → 슬로우 모드 진입
+                isSlowMode = true;
+                slowTimer = SLOW_DURATION;
+
+                autoMoveSpeedPerFrame = SLOW_AUTO_SPEED;  // 0.02로 느려짐
+
+                // 계속 앞으로는 가게 둘 거면:
+                isAutoMove = true;
 
                 needRedisplay = true;
             }
             else {
-                // 충돌이 아닌 프레임이고, 슬로우 상태도 아니면 정상 속도 유지
-                if (!isSpeedSlowed) {
-                    isAutoMove = true;
-                    autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
-                }
+                // 충돌 상태가 아니라면 다시 달리기
+                isAutoMove = true;
             }
         }
+
 
 
         // 1. 자동 이동 로직
@@ -1513,12 +1711,37 @@ void idle() {
             }
         }
 
-        // 1-1. 충돌 슬로우 타이머 갱신
-        if (isSpeedSlowed) {
-            speedSlowTimer -= deltaTime;        // 지난 시간만큼 줄여줌
-            if (speedSlowTimer <= 0.0f) {
-                isSpeedSlowed = false;          // 슬로우 상태 해제
-                autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;  // 원래 속도로 복귀
+        // --- 슬로우 모드 타이머 (충돌 후 3초 동안만 느리게) ---
+        if (isSlowMode) {
+            slowTimer -= deltaTime;
+            if (slowTimer <= 0.0f) {
+                slowTimer = 0.0f;
+                isSlowMode = false;
+
+                // 슬로우가 끝났을 때,
+                // 부스터가 켜져 있으면 부스터 속도 유지,
+                // 아니면 기본 속도로 복귀
+                if (isBoosterActive)
+                    autoMoveSpeedPerFrame = BOOSTER_AUTO_SPEED;
+                else
+                    autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
+            }
+        }
+
+        // --- 부스터(무적 + 속도업) 타이머 ---
+        if (isBoosterActive) {
+            boosterTimer -= deltaTime;
+            if (boosterTimer <= 0.0f) {
+                boosterTimer = 0.0f;
+                isBoosterActive = false;
+
+                // 부스터가 꺼졌을 때,
+                // 슬로우 모드가 남아 있으면 슬로우 속도,
+                // 아니면 기본 속도로
+                if (isSlowMode)
+                    autoMoveSpeedPerFrame = SLOW_AUTO_SPEED;
+                else
+                    autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
             }
         }
 
@@ -1560,6 +1783,7 @@ void idle() {
         // 4. 코인 및 자석 업데이트
         updateCoins();
         updateMagnets();
+        updateBoosters();
 
         // 자석 타이머 감소
         if (isMagnetActive) {
@@ -1570,6 +1794,39 @@ void idle() {
             }
         }
     } // if (!isGameClear) 끝
+
+// --- 슬로우 모드 타이머 (충돌 후 3초 동안만 느리게) ---
+    if (isSlowMode) {
+        slowTimer -= deltaTime;
+        if (slowTimer <= 0.0f) {
+            slowTimer = 0.0f;
+            isSlowMode = false;
+
+            // 슬로우가 끝났을 때 부스터가 켜져 있으면 부스터 속도로,
+            // 아니면 기본 속도로 복귀
+            if (isBoosterActive)
+                autoMoveSpeedPerFrame = BOOSTER_AUTO_SPEED;
+            else
+                autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
+        }
+    }
+
+    // --- 부스터(무적 + 속도업) 타이머 ---
+    if (isBoosterActive) {
+        boosterTimer -= deltaTime;
+        if (boosterTimer <= 0.0f) {
+            boosterTimer = 0.0f;
+            isBoosterActive = false;
+
+            // 부스터가 꺼질 때, 슬로우 모드가 남아있으면 슬로우 속도로,
+            // 아니면 기본 속도로
+            if (isSlowMode)
+                autoMoveSpeedPerFrame = SLOW_AUTO_SPEED;
+            else
+                autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
+        }
+    }
+
 
 
     // --- 코인 회전은 게임 끝나도 계속 돌면 예쁘니까 if 밖으로 뺌 (선택사항) ---
@@ -1991,7 +2248,7 @@ void Display() {
     // ==================================================
     // 3. 도로 및 건물 그리기 루프
     // ==================================================
-    int tunnelSegments = 300;
+    int tunnelSegments = 1000;
     float tunnelScaleXY = 2.0f;
     int buildingSpacing = 2;        // 건물 간격 (2칸마다 배치)
 
@@ -2176,6 +2433,7 @@ void Display() {
     drawTrains();     // 기차
     drawCoins();      // 코인
     drawMagnets();    // 자석
+    drawBoosters();   // 부스터
 
     // 플레이어 그리기
     float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f;
@@ -2243,7 +2501,10 @@ int main(int argc, char** argv)
     // 5. 코인 텍스처
     makeTexture("coin_f.bmp", &coinTexID);
 
-    //6. 잔디 텍스쳐
+    //6. 부스터 텍스쳐
+    makeTexture("booster.bmp", &boosterTexID);
+
+    //7. 잔디 텍스쳐
     makeTexture("grass.bmp", &grassTexID);
 
 
@@ -2260,6 +2521,7 @@ int main(int argc, char** argv)
     initBuildings();
 
     initMagnets();
+    initBoosters();   // 부스터 초기화
 
     glutDisplayFunc(Display);
     glutReshapeFunc(Reshape);
