@@ -85,6 +85,11 @@ float tunnelOffsetZ = 0.0f;
 //자동 이동되는 변수 추가
 bool isAutoMove = false;
 float autoMoveSpeedPerFrame = 0.08f;
+// --- 충돌 후 슬로우 효과용 변수 ---
+const float NORMAL_AUTO_SPEED = 0.05f;  // 평소 속도
+const float SLOW_AUTO_SPEED = 0.02f;  // 느려진 속도
+bool  isSpeedSlowed = false;          // 지금 슬로우 상태인지?
+float speedSlowTimer = 0.0f;           // 남은 시간(초)
 
 // [로봇 애니메이션용 전역 변수 추가]
 float limbAngle = 0.0f;   // 팔다리 각도
@@ -1454,20 +1459,28 @@ void idle() {
         // =========================================================
         // 
         // 
-        // ★ 충돌 체크 로직 ★
+        // ★ 충돌 체크 로직 ★ (충돌하면 1.5초간 슬로우 유지)
         if (isGameStarted) {
             if (checkCollision()) {
-                // 충돌 상태
-                isAutoMove = false; // 멈춤
-                tunnelOffsetZ -= 0.2f;
-                autoMoveSpeedPerFrame = 0.08f; // 자동 이동 속도 같이 수정해야 함 ★
+                // 충돌 상태: 살짝 뒤로 밀리고, 1.5초 동안 속도 느려짐
+                tunnelOffsetZ -= 0.2f;    // 살짝 밀리는 느낌 (원하면 줄이거나 빼도 됨)
+
+                isAutoMove = true;        // 멈추지 말고 계속 전진
+                isSpeedSlowed = true;    // 슬로우 상태 진입
+                speedSlowTimer = 1.5f;    // 1.5초 유지
+                autoMoveSpeedPerFrame = SLOW_AUTO_SPEED;  // 느려진 속도로 변경
+
                 needRedisplay = true;
             }
             else {
-                // 충돌 상태가 아니라면 다시 달리기
-                isAutoMove = true;
+                // 충돌이 아닌 프레임이고, 슬로우 상태도 아니면 정상 속도 유지
+                if (!isSpeedSlowed) {
+                    isAutoMove = true;
+                    autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;
+                }
             }
         }
+
 
         // 1. 자동 이동 로직
         if (isAutoMove) {
@@ -1499,6 +1512,16 @@ void idle() {
                 needRedisplay = true;
             }
         }
+
+        // 1-1. 충돌 슬로우 타이머 갱신
+        if (isSpeedSlowed) {
+            speedSlowTimer -= deltaTime;        // 지난 시간만큼 줄여줌
+            if (speedSlowTimer <= 0.0f) {
+                isSpeedSlowed = false;          // 슬로우 상태 해제
+                autoMoveSpeedPerFrame = NORMAL_AUTO_SPEED;  // 원래 속도로 복귀
+            }
+        }
+
 
         // 2. 점프 및 착지 물리 로직
         float currentGround = getGroundHeight();
