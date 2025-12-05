@@ -127,3 +127,27 @@ bool Title_IsInsideButton(int x, int y)
     return (x >= left && x <= right &&
         yBottom >= bottom && yBottom <= top);
 }
+
+// -------------------------------
+// 세팅 버튼 클릭 판정 (좌측 하단 톱니 아이콘)
+// -------------------------------
+bool Title_IsInsideSettingButton(int x, int y)
+{
+    // GLUT에서 y는 위가 0이라서, 아래 기준으로 바꾸기
+    int yBottom = gHeight - y;
+
+    // 버튼 크기: 화면 높이의 8% 정도 정사각형 (800x600 기준 대략 48픽셀)
+    int size = (int)(gHeight * 0.08f);
+
+    // 좌측 하단에서 약간 안쪽으로 들어온 위치에 버튼 배치
+    //  - left : 화면 왼쪽에서 5% 지점
+    //  - bottom : 화면 아래에서 5% 지점
+    int left = (int)(gWidth * 0.05f);
+    int bottom = (int)(gHeight * 0.05f);
+
+    int right = left + size;
+    int top = bottom + size;
+
+    return (x >= left && x <= right &&
+        yBottom >= bottom && yBottom <= top);
+}

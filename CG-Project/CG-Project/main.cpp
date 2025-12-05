@@ -1,5 +1,6 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS 
 #include "title.h"
+#include "setting.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -1915,13 +1916,48 @@ void specialKeyboardUp(int key, int x, int y) {
 
 void mouse(int button, int state, int x, int y)
 {
-    if (!gIsGameStarted && button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+    // 마우스 왼쪽 버튼 DOWN만 처리
+    if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN)
+        return;
+
+    // 게임이 시작된 이후에는 타이틀/세팅 관련 클릭 무시
+    if (gIsGameStarted)
+        return;
+
+    // --------------- 타이틀 모드에서만 처리 ---------------
+
+    // 1) 세팅 화면이 켜져 있을 때 (setting.bmp 모드)
+    if (gIsSettingMode)
     {
-        if (Title_IsInsideButton(x, y))
-            gIsGameStarted = true;
+        // 세팅 화면 안의 "뒤로가기" 버튼을 눌렀다면
+        if (Setting_IsInsideBackButton(x, y))
+        {
+            gIsSettingMode = false;   // 세팅 화면 끄고
+            // 다시 타이틀 화면으로 복귀
+        }
+
+        // 나중에 여기서 BGM ON/OFF 버튼도 추가하면 됨
+        // else if (Setting_IsInsideBgmButton(x, y)) { ... }
+
+        return;
+    }
+
+    // 2) 일반 타이틀 화면 (title.bmp 모드)
+
+    // (1) START 버튼 클릭 → 게임 시작
+    if (Title_IsInsideButton(x, y))
+    {
+        gIsGameStarted = true;
+        return;
+    }
+
+    // (2) SETTING 버튼 클릭 → 세팅 화면 ON
+    if (Title_IsInsideSettingButton(x, y))
+    {
+        gIsSettingMode = true;
+        return;
     }
 }
-
 
 //짱구 ver
  //로봇 그리기 함수
@@ -2194,11 +2230,26 @@ void applyBuildingColor(int colorIndex, GLint locColor) {
 void Display() {
 
 
+    // 아직 게임이 시작되지 않았을 때는
+    // 타이틀 모드 (title.bmp / setting.bmp)만 그림
     if (!gIsGameStarted) {
-        Title_Render();
+        if (gIsSettingMode) {
+            // 세팅 화면 ON 상태라면 setting.bmp 출력
+            Setting_Render();
+        }
+        else {
+            // 기본은 타이틀 화면
+            Title_Render();
+        }
+
         glutSwapBuffers();
         return;
     }
+
+
+    // -----------------------------
+    // 여기부터는 "게임 플레이 모드"
+    // -----------------------------
     glUseProgram(shaderProgramID);
 
     glClearColor(0.6f, 0.8f, 1.0f, 1.0f);
@@ -2404,7 +2455,7 @@ void Display() {
         for (int f = 0; f < 6; f++) drawCubeFace(f);
 
         // --------------------------------------------------
-        // C. 게이트 상단 간판 (파란색)
+        // C. 게이트 상단 간판 (파란색)0
         // --------------------------------------------------
         glUniform3f(locObjectColor, 0.1f, 0.1f, 0.9f); // 진한 파랑
 
@@ -2515,7 +2566,9 @@ int main(int argc, char** argv)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
 
-    Title_Init();
+    Title_Init();     // 타이틀 화면
+    Setting_Init();   // 세팅 화면
+
     initTrains();
     initCoins(); // 코인 초기화
     initBuildings();
