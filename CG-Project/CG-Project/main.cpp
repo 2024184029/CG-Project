@@ -1,4 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS 
+#include "title.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -15,8 +16,7 @@
 #include <gl/glm/glm.hpp>
 #include <gl/glm/ext.hpp>
 #include <gl/glm/gtc/matrix_transform.hpp>
-// 시작 화면 추가
-#include "title.h"
+
 
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "glew32.lib")
@@ -39,7 +39,6 @@ void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color);
 // ------------ 전역변수 -------------
 GLuint vaoCube[6];
 GLuint vaoLaneLine;   // 바닥 레인 만들기 위한 VAO
-
 GLuint vaoCoin;     // 코인 VAO
 const int COIN_SEGMENTS = 32;
 // 앞/뒤 원판 + 옆면(삼각형들) 개수
@@ -49,7 +48,6 @@ const int COIN_SIDE_COUNT = COIN_SEGMENTS * 6;      // 옆면(세그먼트당 �
 
 // 전체 정점 수
 const int COIN_VERT_COUNT = COIN_FRONT_COUNT + COIN_BACK_COUNT + COIN_SIDE_COUNT;
-
 
 float coinRotateAngle = 0.0f;   // 코인 회전 각도
 
@@ -62,6 +60,20 @@ GLuint trainTopTexID;
 
 GLuint floorTexID;   // 선로 바닥(tile.bmp)용 텍스처
 GLuint coinTexID;    // 코인(coin_f.bmp) 텍스처
+GLuint grassTexID; // 잔디 텍스처 ID
+
+//=======================================
+//건물 관련 변수
+GLuint buildingTexIDs[3]; // 건물 텍스처 ID 3개를 담을 배열
+// 건물 데이터 배열
+#define MAX_SEGMENTS 1000
+float leftBuildingHeight[MAX_SEGMENTS];
+float rightBuildingHeight[MAX_SEGMENTS];
+int leftBuildingColor[MAX_SEGMENTS];
+int rightBuildingColor[MAX_SEGMENTS];
+int leftBuildingTexIndex[MAX_SEGMENTS];  // 왼쪽 건물 텍스처 번호
+int rightBuildingTexIndex[MAX_SEGMENTS]; // 오른쪽 건물 텍스처 번호
+//===============================================================
 
 // +++ 플레이어 위치 변수 추가 +++
 float playerX = 0.0f;
@@ -72,7 +84,7 @@ float tunnelOffsetZ = 0.0f;
 
 //자동 이동되는 변수 추가
 bool isAutoMove = false;
-float autoMoveSpeedPerFrame = 0.02f;
+float autoMoveSpeedPerFrame = 0.05f;
 
 // [로봇 애니메이션용 전역 변수 추가]
 float limbAngle = 0.0f;   // 팔다리 각도
@@ -82,9 +94,13 @@ float limbDir = 1.0f;     // 팔다리 움직임 방향
 bool isJumping = false;
 float jumpY = 0.0f;
 float jumpVelocity = 0.0f;
-const float GRAVITY = 0.0006f;    // 중력을 절반 정도로 낮춤 (천천히 떨어짐)
+const float GRAVITY = 0.0009f;    // 중력을 절반 정도로 낮춤 (천천히 떨어짐)
 const float JUMP_POWER = 0.045f;
 
+// 전역 변수 선언 부분에 추가
+bool isGameClear = false;       // 게임이 끝났는지 확인하는 변수
+//float finishDistance = 400.0f;  // 목표 지점 (터널 길이와 맞춰주세요)
+float finishDistance = 300;
 
 
 //좌우 부드러운 이동을 위한 변수
@@ -97,6 +113,15 @@ int currentLane = 0;        // 현재 레인 번호 (-1: 왼쪽, 0: 가운데, 1
 float targetPlayerX = 0.0f; // 플레이어가 이동해야 할 목표 X 좌표
 const float LANE_WIDTH = 0.85f; // 레인 간격 (선이 0.25니까 0.5 간격이면 딱 맞습니다)
 float laneSwitchSpeed = 0.04f;
+
+
+//캐릭터 관련 변수
+float snotAngle = 0.0f;     // 기본 회전 각도
+float snotLag = 0.0f;       // 스프링 지연
+float snotRadiusX = 0.35f;  // 좌우로 뻗는 길이 (뒤에서도 보이게 크게)
+float snotRadiusZ = 0.25f;  // 앞뒤로 흔들림
+float snotLength = 0.45f;  // 콧물 실제 길이
+
 
 //---------------------------------------------------
 //기차 관련 구조체 및 변수
@@ -119,7 +144,7 @@ struct Coin {
 std::vector<Coin> coins; // 코인 목록
 int coinCount = 0;       // 먹은 코인 개수
 
-int gWidth = 800, gHeight = 600; // 현재 창 크기 (텍스트용)
+int gWidth = 800, gHeight = 800; // 현재 창 크기 (텍스트용)
 
 // ------------ 자석(Magnet) 아이템 ------------
 
@@ -174,16 +199,14 @@ int cubeFacesIndices[6][4] = {
    {1,2,6,5}
 };
 
+// 전역 변수 부분의 색상 배열 수정
 GLfloat cubeFaceColors[6][3] = {
-   {0.0f, 0.0f, 0.0f},        // 0: 앞   (안 보임)
-   {0.0f, 0.0f, 0.0f},        // 1: 뒤   (안 보임)
-
-   {0.0f, 0.0f, 1.0f},        // 2: 아래  (바닥)
-
-   {0.5f, 0.0f, 1.0f},        // 3: 위   (천장)
-
-   {0.2f, 0.4f, 1.0f},        // 4: 왼쪽 벽
-   {0.2f, 0.4f, 1.0f},        // 5: 오른쪽 벽
+   {0.5f, 0.5f, 0.5f},        // 0: 회색 (전봇대/기둥 색으로 사용!)
+   {0.0f, 0.0f, 0.0f},        // 1: 검정
+   {0.0f, 0.0f, 1.0f},        // 2: 파랑 (바닥)
+   {0.5f, 0.0f, 1.0f},        // 3: 보라 (천장)
+   {0.2f, 0.4f, 1.0f},        // 4: 벽 1
+   {0.2f, 0.4f, 1.0f},        // 5: 벽 2
 };
 
 
@@ -274,72 +297,78 @@ Mat4 translate(float tx, float ty, float tz)
 
 //==========================================================
 
-// BMP 파일 로드 함수
-GLubyte* LoadBMP(const char* filename, int* width, int* height) {
-    FILE* file = fopen(filename, "rb");
+// [1] BMP 파일을 직접 파싱하는 함수 (외부 라이브러리 X)
+unsigned char* loadBMP_Manual(const char* imagepath, unsigned int* width, unsigned int* height) {
+    FILE* file;
+    fopen_s(&file, imagepath, "rb"); // Windows 안전 버전 fopen
     if (!file) {
-        std::cout << "이미지 파일을 찾을 수 없습니다: " << filename << std::endl;
+        printf("이미지 파일을 열 수 없습니다: %s\n", imagepath);
         return NULL;
     }
 
     unsigned char header[54];
-    if (fread(header, 1, 54, file) != 54) {
-        std::cout << "BMP 파일 형식이 아닙니다." << std::endl;
+    if (fread(header, 1, 54, file) != 54) { // 헤더 54바이트 읽기
+        printf("BMP 헤더 오류\n");
         fclose(file);
         return NULL;
     }
 
     if (header[0] != 'B' || header[1] != 'M') {
-        std::cout << "BMP 파일이 아닙니다." << std::endl;
+        printf("BMP 파일이 아닙니다 (BM 매직넘버 없음)\n");
         fclose(file);
         return NULL;
     }
 
-    *width = *(int*)&(header[18]);
-    *height = *(int*)&(header[22]);
-    int imageSize = *(int*)&(header[34]);
+    // 헤더에서 정보 추출
+    unsigned int dataPos = *(int*)&(header[0x0A]);
+    unsigned int imageSize = *(int*)&(header[0x22]);
+    *width = *(int*)&(header[0x12]);
+    *height = *(int*)&(header[0x16]);
 
-    if (imageSize == 0) imageSize = (*width) * (*height) * 3;
+    // BMP 정보 보정
+    if (imageSize == 0)    imageSize = (*width) * (*height) * 3;
+    if (dataPos == 0)      dataPos = 54;
 
-    GLubyte* data = (GLubyte*)malloc(imageSize);
+    // 실제 데이터 위치로 이동
+    unsigned char* data = new unsigned char[imageSize];
+
+    // 데이터 위치로 점프해서 읽기 (이게 안 되면 지지직거림)
+    fseek(file, dataPos, SEEK_SET);
     fread(data, 1, imageSize, file);
     fclose(file);
-
-    // BMP는 BGR 순서로 저장되므로 RGB로 변환해야 함
-    for (int i = 0; i < imageSize; i += 3) {
-        unsigned char temp = data[i];
-        data[i] = data[i + 2];
-        data[i + 2] = temp;
-    }
 
     return data;
 }
 
-// 텍스처 생성 함수
-
+// [2] 텍스처 생성 함수
 void makeTexture(const char* filename, GLuint* targetID) {
-    int width, height;
-    GLubyte* data = LoadBMP(filename, &width, &height);
+    unsigned int width, height;
+    unsigned char* data = loadBMP_Manual(filename, &width, &height);
 
     if (data != NULL) {
-        glGenTextures(1, targetID);            // 받아온 변수에 ID 생성
-        glBindTexture(GL_TEXTURE_2D, *targetID); // 그 ID 바인딩
+        glGenTextures(1, targetID);
+        glBindTexture(GL_TEXTURE_2D, *targetID);
 
+        // ★ 텍스처가 깨지는 것을 방지하는 핵심 설정
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+        // 텍스처 반복 및 필터 설정
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        // ★ BMP는 보통 BGR 순서로 되어 있습니다. GL_BGR 사용!
+        // 만약 색이 파랗게 나오면 GL_RGB로 바꾸세요.
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
+
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        free(data);
-        std::cout << "텍스처 로드 성공: " << filename << std::endl;
+        delete[] data; // 메모리 해제
+        std::cout << "텍스처 로드 성공: " << filename << " (" << width << "x" << height << ")" << std::endl;
     }
     else {
-        std::cout << "텍스처 로드 실패: " << filename << std::endl;
+        std::cout << "텍스처 로드 실패 (경로 확인 필수): " << filename << std::endl;
     }
 }
 //================================================================
@@ -465,7 +494,7 @@ void setupCubeVAOs()
             cubeTexCoords[2][0] = maxU; cubeTexCoords[2][1] = 1.0f;
             cubeTexCoords[3][0] = maxU; cubeTexCoords[3][1] = 0.0f;
         }
-        
+
         // ========================================================
         // ★ 2. 앞면(0)과 뒷면(1): 수정됨!
         // ========================================================
@@ -692,8 +721,6 @@ void setupCoinVAO()
 }
 
 
-
-
 // 로봇의 각 부위(큐브)를 그리는 헬퍼 함수
 void drawColoredCube(glm::mat4 modelMatrix, glm::vec3 color) {
     // 1. 셰이더 유니폼 위치 가져오기
@@ -751,8 +778,6 @@ void drawCoinMesh(glm::mat4 modelMatrix, glm::vec3 color) {
     glBindVertexArray(0);
     glUniform1i(locUseObjectColor, 0); // 상태 원복
 }
-
-
 
 // ------------------------------------------------------
 // ------------------------------------------------------
@@ -829,46 +854,78 @@ void drawMagnetMesh(glm::mat4 baseMatrix)
 
 
 //=========================================================================
-//기차 초기화 함수 
-
 void initTrains() {
     trains.clear();
 
     float startZ = -30.0f;
-    float gapZ = 40.0f;
-    // ★ 수정: 맵 패턴을 길게 만들어서 반복되는지 모르게 함 (15 -> 50)
-    int numberOfSets = 50;
+    float gapZ = 25.0f;
+    int numberOfSets = 100;
+
+    int lastStationaryIdx[3] = { -999, -999, -999 };
 
     for (int i = 0; i < numberOfSets; i++) {
         float currentZPos = startZ - (i * gapZ);
-
-        // 1줄에 1~2개 배치
         int trainCount = (rand() % 2) + 1;
 
         std::vector<int> lanes = { -1, 0, 1 };
         std::random_shuffle(lanes.begin(), lanes.end());
 
+        // 달려오는 기차 줄 확률: 40%
+        bool isMovingRow = (rand() % 100 < 40);
+
         for (int k = 0; k < trainCount; k++) {
             Train t;
-            t.lane = lanes[k];
+            int currentLane = lanes[k];
+            int laneArrayIdx = currentLane + 1;
+
+            t.lane = (float)currentLane;
             t.zPos = currentZPos;
-
-            // ★ 기차(0) vs 울타리(1) 결정 ★
-            // 같은 자리에 기차랑 울타리가 동시에 생길 수 없음 (if-else 구조라서)
-            // 25% 확률로 울타리 생성
-            if (rand() % 4 == 0) {
-                t.type = 1; // 울타리
-            }
-            else {
-                t.type = 0; // 기차
-            }
-
             t.colorType = rand() % 5;
+
+            // ======================================================
+            // [A] 달려오는 기차 시도 (40%)
+            // ======================================================
+            if (isMovingRow) {
+                // ★ [수정] 안전거리를 12칸 -> 6칸으로 대폭 완화!
+                // 이제 앞에 멈춘 기차가 있어도 좀 더 과감하게 생성됩니다.
+                if (i - lastStationaryIdx[laneArrayIdx] < 6) {
+                    // [대체] 너무 가까우면 '멈춘 장애물'로 변경
+                    t.isMoving = false;
+                    t.speed = 0.0f;
+
+                    if (rand() % 3 == 0) t.type = 1; // 울타리
+                    else t.type = 0; // 멈춘 기차
+
+                    lastStationaryIdx[laneArrayIdx] = i;
+                }
+                else {
+                    // 안전하면 '달려오는 기차' 생성
+                    t.type = 0;
+                    t.isMoving = true;
+                    t.speed = 0.5f;
+                }
+            }
+            // ======================================================
+            // [B] 멈춰있는 장애물 줄 (60%)
+            // ======================================================
+            else {
+                t.isMoving = false;
+                t.speed = 0.0f;
+
+                if (rand() % 3 == 0) {
+                    t.type = 1; // 울타리 (20%)
+                }
+                else {
+                    t.type = 0; // 멈춘 기차 (40%)
+                }
+
+                lastStationaryIdx[laneArrayIdx] = i;
+            }
+
             trains.push_back(t);
         }
     }
 }
-
 // ======== 여기부터 추가: 코인 초기화 함수 ========
 void initCoins() {
     coins.clear();
@@ -915,6 +972,25 @@ void initMagnets() {
     }
 }
 
+//===============================================
+//건물 초기화
+
+void initBuildings() {
+    for (int i = 0; i < MAX_SEGMENTS; i++) {
+        // 높이 랜덤
+        leftBuildingHeight[i] = 1.0f + (rand() % 15) * 0.1f;
+        rightBuildingHeight[i] = 1.0f + (rand() % 15) * 0.1f;
+
+        // 색상 랜덤
+        leftBuildingColor[i] = 2 + (rand() % 6);
+        rightBuildingColor[i] = 2 + (rand() % 6);
+
+        // 텍스처 번호 랜덤 설정 (이게 없으면 오른쪽 건물이 안 보임) ★
+        leftBuildingTexIndex[i] = rand() % 3;
+        rightBuildingTexIndex[i] = rand() % 3;
+    }
+}
+//==============================================
 
 //플레이어 발 밑의 높이 계산 함수
 float getGroundHeight() {
@@ -1100,21 +1176,42 @@ void drawTrains() {
     float tWidth = 0.5f;
     float tHeight = 0.8f;
     float tLength = 15.0f;
-    float loopDistance = 50 * 40.0f;
+    float loopDistance = 100 * 25.0f;
 
     GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
     GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor");
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
+
+
+    float gateZ = tunnelOffsetZ - finishDistance;
+
     for (int i = 0; i < trains.size(); i++) {
         float currentZ = trains[i].zPos + tunnelOffsetZ;
 
+        if (currentZ < gateZ) continue;
+
+        // ★ [수정] 기차가 화면 뒤로 지나가서 재활용(Respawn) 될 때
+        // =========================================================
         if (currentZ > 5.0f) {
-            trains[i].zPos -= loopDistance;
+            trains[i].zPos -= loopDistance; // 뒤로 보냄
             trains[i].colorType = rand() % 5;
+
+            // ★ [추가] 30% 확률로 "달려오는 기차"로 변신!
+            // 장애물(type 1)은 움직이면 안 되므로 기차(type 0)일 때만 적용
+            if (trains[i].type == 0 && (rand() % 10) < 3) {
+                trains[i].isMoving = true;
+                trains[i].speed = 0.3f; // 기차 속도 (조절 가능)
+            }
+            else {
+                trains[i].isMoving = false;
+                trains[i].speed = 0.0f;
+            }
+
             continue;
         }
+
 
         float x = trains[i].lane * LANE_WIDTH;
 
@@ -1187,13 +1284,17 @@ void drawTrains() {
 // ======== 여기부터: 코인 그리기 (원판 + 회전) ==========
 void drawCoins() {
     float coinRadius = 0.2f;   // 동그라미 반지름
-    float coinThickness = 0.08f;   // 두께 조정
+    float coinThickness = 0.1f;   // 두께 (얇은 원판)
     float coinY = -1.0f + 0.5f;  // 바닥 위로 띄우는 높이
 
-    float loopDistance = 50.0f * 40.0f;
+    float loopDistance = 100 * 25.0f;
+
+    float gateZ = tunnelOffsetZ - finishDistance;
 
     for (int i = 0; i < coins.size(); i++) {
         float currentZ = coins[i].zPos + tunnelOffsetZ;
+
+        if (currentZ < gateZ) continue;
 
         // 화면 뒤로 넘어가면 재배치
         if (currentZ > 5.0f) {
@@ -1227,11 +1328,14 @@ void drawMagnets() {
     float magnetY = -1.0f + 0.5f;  // 코인과 비슷한 높이
     float baseScale = 0.4f;
 
-    float loopDistance = 50.0f * 40.0f;
+    float loopDistance = 100 * 25.0f;
+
+    float gateZ = tunnelOffsetZ - finishDistance;
 
     for (int i = 0; i < magnets.size(); i++) {
         float currentZ = magnets[i].zPos + tunnelOffsetZ;
 
+        if (currentZ < gateZ) continue;
         if (currentZ > 5.0f) {
             magnets[i].zPos -= loopDistance;
             magnets[i].collected = false;
@@ -1279,10 +1383,14 @@ void drawWoodPlanks()
     float startZ = -1.0f;   // 플레이어보다 약간 앞부터
     float endZ = -300.0f; // 터널 끝 쪽까지
 
+    float gateZ = tunnelOffsetZ - finishDistance;
+
     for (float localZ = startZ; localZ > endZ; localZ -= plankGapZ)
     {
         // tunnelOffsetZ 를 더해서 실제 화면상의 위치로
         float z = localZ + tunnelOffsetZ;
+
+        if (z < gateZ) continue;
 
         // 너무 뒤/앞은 안 그리기 (성능 + 필요 없는 부분 제거)
         if (z > 5.0f)   continue;
@@ -1318,117 +1426,139 @@ void drawLaneLine() {
 void idle() {
     bool needRedisplay = false;
 
-    // 지난 프레임에서 얼마나 시간이 지났는지(초) 계산 -> 자석 기능 업데이트에 사용
+    // 지난 프레임에서 얼마나 시간이 지났는지(초) 계산
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
     if (prevTime == 0) prevTime = currentTime;
     int elapsed = currentTime - prevTime;
     prevTime = currentTime;
     deltaTime = elapsed / 1000.0f;
 
-    // ★ 충돌 체크 로직 수정 ★
+    // =========================================================
+    // ★ [수정 1] 게임이 아직 안 끝났을 때만 게임 로직 실행
+    // =========================================================
+    if (!isGameClear)
+    {
 
-    if (isGameStarted) {
+        // ★ [추가] 달려오는 기차 이동 로직
+        // =========================================================
+        for (int i = 0; i < trains.size(); i++) {
+            // 게임이 진행 중이고, 이 기차가 '움직이는 기차'라면?
+            if (isGameStarted && trains[i].isMoving) {
+                // 플레이어가 다가가는 속도(tunnelOffsetZ 증가)에 더해서
+                // 기차도 플레이어 쪽으로 다가오게 함 (zPos 증가)
+                // zPos는 음수에서 시작해서 0(플레이어) 쪽으로 옵니다.
+                trains[i].zPos += trains[i].speed;
+            }
+        }
+        // =========================================================
+        // 
+        // 
+        // ★ 충돌 체크 로직 ★
+        if (isGameStarted) {
+            if (checkCollision()) {
+                // 충돌 상태
+                isAutoMove = false; // 멈춤
+                tunnelOffsetZ -= 0.2f;
+                autoMoveSpeedPerFrame = 0.02f;
+                needRedisplay = true;
+            }
+            else {
+                // 충돌 상태가 아니라면 다시 달리기
+                isAutoMove = true;
+            }
+        }
 
-        if (checkCollision()) {
-            // 충돌 상태
-            isAutoMove = false; // 멈춤
-            tunnelOffsetZ -= 0.2f;
-            autoMoveSpeedPerFrame = 0.02f;
+        // 1. 자동 이동 로직
+        if (isAutoMove) {
+            tunnelOffsetZ += autoMoveSpeedPerFrame;
+
+            // =========================================================
+            // ★ [수정 2] 도착 지점 체크 로직 추가
+            // =========================================================
+            if (tunnelOffsetZ >= finishDistance) {
+                tunnelOffsetZ = finishDistance; // 위치 고정 (더 이상 못 감)
+                isGameClear = true;             // 게임 종료 플래그 켜기!
+                isAutoMove = false;             // 달리기 멈춤
+            }
+            // =========================================================
+
+            // 로봇 팔다리 애니메이션 (게임 중일 때만)
+            if (!isGameClear) {
+                limbAngle += 2.0f * limbDir;
+                if (limbAngle > 45.0f || limbAngle < -45.0f) {
+                    limbDir *= -1.0f;
+                }
+            }
             needRedisplay = true;
         }
         else {
-            // 충돌 상태가 아니라면? (옆으로 피했거나, 원래 안전하다면)
-            // 다시 자동으로 달리기 시작!
-            isAutoMove = true;
+            // 멈춰있을 때는 차렷
+            if (abs(limbAngle) > 0.1f) {
+                limbAngle *= 0.9f;
+                needRedisplay = true;
+            }
         }
-    }
 
-    // 1. 자동 이동 로직
-    if (isAutoMove) {
-        tunnelOffsetZ += autoMoveSpeedPerFrame;
+        // 2. 점프 및 착지 물리 로직
+        float currentGround = getGroundHeight();
 
-        // 로봇 팔다리 애니메이션
-        limbAngle += 2.0f * limbDir;
-        if (limbAngle > 45.0f || limbAngle < -45.0f) {
-            limbDir *= -1.0f;
-        }
-        needRedisplay = true;
-    }
-    else {
-        // 멈춰있을 때는 차렷
-        if (abs(limbAngle) > 0.1f) {
-            limbAngle *= 0.9f;
+        if (jumpY > currentGround || isJumping) {
+            jumpY += jumpVelocity;
+            jumpVelocity -= GRAVITY;
+
+            if (jumpY <= currentGround) {
+                jumpY = currentGround;
+                isJumping = false;
+                jumpVelocity = 0.0f;
+            }
+            else {
+                isJumping = true;
+            }
             needRedisplay = true;
         }
-    }
+        else if (jumpY > currentGround) {
+            isJumping = true;
+        }
 
-    // --- 코인 회전 각도 업데이트 (항상 살짝씩 돈다) ---
-    coinRotateAngle += 1.0f;      // 한 프레임당 _도 씩 회전(숫자 낮출수록 느리게)
+        // 3. 레인 변경 애니메이션 로직
+        if (abs(playerX - targetPlayerX) > 0.001f) {
+            if (playerX < targetPlayerX) {
+                playerX += laneSwitchSpeed;
+                if (playerX > targetPlayerX) playerX = targetPlayerX;
+            }
+            else {
+                playerX -= laneSwitchSpeed;
+                if (playerX < targetPlayerX) playerX = targetPlayerX;
+            }
+            needRedisplay = true;
+        }
+
+        // 4. 코인 및 자석 업데이트
+        updateCoins();
+        updateMagnets();
+
+        // 자석 타이머 감소
+        if (isMagnetActive) {
+            magnetTimer -= deltaTime;
+            if (magnetTimer <= 0.0f) {
+                magnetTimer = 0.0f;
+                isMagnetActive = false;
+            }
+        }
+    } // if (!isGameClear) 끝
+
+
+    // --- 코인 회전은 게임 끝나도 계속 돌면 예쁘니까 if 밖으로 뺌 (선택사항) ---
+    coinRotateAngle += 1.0f;
     if (coinRotateAngle > 360.0f)
         coinRotateAngle -= 360.0f;
 
-    needRedisplay = true; // 코인 회전 때문에 새로 그리기
-
-
-    // 2. 점프 및 착지 물리 로직
-
-    // 내 발 밑의 목표 바닥 높이를 구함
-    float currentGround = getGroundHeight();
-
-    // 플레이어가 바닥보다 위에 있거나, 점프 중이라면 물리 적용
-    if (jumpY > currentGround || isJumping) {
-        jumpY += jumpVelocity;      // 위치 이동
-        jumpVelocity -= GRAVITY;    // 중력 적용
-
-        // 바닥(기차 위 혹은 땅)에 닿았는지 체크
-        if (jumpY <= currentGround) {
-            jumpY = currentGround;   // 바닥 높이에 고정
-            isJumping = false;       // 점프 끝 (땅에 닿음)
-            jumpVelocity = 0.0f;     // 속도 초기화
-        }
-        else {
-
-            isJumping = true;
-        }
-        needRedisplay = true;
-    }
-    // 기차 위에 있다가 기차가 지나가버려서 허공이 된 경우 처리
-    else if (jumpY > currentGround) {
-        isJumping = true; // 다시 떨어지기 시작해야 함
-    }
-
-
-    // 3. 레인 변경 애니메이션 로직
-    if (abs(playerX - targetPlayerX) > 0.001f) {
-        if (playerX < targetPlayerX) {
-            playerX += laneSwitchSpeed;
-            if (playerX > targetPlayerX) playerX = targetPlayerX;
-        }
-        else {
-            playerX -= laneSwitchSpeed;
-            if (playerX < targetPlayerX) playerX = targetPlayerX;
-        }
-        needRedisplay = true;
-    }
-
-    // ======== 코인 위치/먹기 업데이트 ========
-    updateCoins();
-    updateMagnets();  // 자석 업데이트
-
-    // --- 자석 타이머 감소 ---
-    if (isMagnetActive) {
-        magnetTimer -= deltaTime;
-        if (magnetTimer <= 0.0f) {
-            magnetTimer = 0.0f;
-            isMagnetActive = false;
-        }
-    }
-
-    if (needRedisplay) {
+    // 게임이 끝났어도 화면 갱신은 해야 UI가 뜹니다.
+    // (게임 중에는 needRedisplay가 true일 때만, 끝났을 땐 항상 갱신해서 UI 그리기)
+    if (needRedisplay || isGameClear) {
         glutPostRedisplay();
     }
 }
-
 
 // ----------------- 일반 키보드 입력  ---------------------
 void keyboard(unsigned char key, int x, int y)
@@ -1512,9 +1642,79 @@ void mouse(int button, int state, int x, int y)
 }
 
 
+//짱구 ver
+ //로봇 그리기 함수
+//void drawRobot(float x, float y, float z) {
+//    // 로봇의 기본 위치 설정
+//    glm::mat4 model = glm::mat4(1.0f);
+//    model = glm::translate(model, glm::vec3(x, y, z));
+//
+//    // ★ 슬라이딩 처리 ★
+//    if (isSliding) {
+//        // 1. 뒤로 눕기 (-90도 X축 회전)
+//        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+//        // 2. 누우면 중심축이 바뀌므로 위치를 살짝 아래/뒤로 조정
+//        model = glm::translate(model, glm::vec3(0.0f, -0.2f, 0.3f));
+//    }
+//    else {
+//
+//        // 로봇이 뒤(Z-)를 보고 있으므로 180도 회전 (플레이어 시점)
+//        // 필요에 따라 각도 조절: glm::radians(180.0f)
+//        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+//    }
+//    model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
+//
+//    // 1. 몸통
+//    glm::mat4 bodyM = glm::scale(model, glm::vec3(0.4f, 0.5f, 0.2f));
+//    drawColoredCube(bodyM, glm::vec3(1.0f, 0.1f, 0.1f)
+//); // 파랑
+//
+//    // 2. 머리
+//    glm::mat4 headM = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
+//    glm::mat4 headScaleM = glm::scale(headM, glm::vec3(0.3f, 0.3f, 0.3f));
+//    drawColoredCube(headScaleM, glm::vec3(0.0f, 0.0f, 0.0f)); // 살색
+//
+//    // 3. 코 (빨강)
+//    glm::mat4 noseM = glm::translate(headM, glm::vec3(0.0f, 0.0f, 0.18f)); // 약간 앞으로 뺌
+//    noseM = glm::scale(noseM, glm::vec3(0.05f, 0.05f, 0.05f));
+//    drawColoredCube(noseM, glm::vec3(1.0f, 0.0f, 0.0f));
+//
+//    // 팔다리 움직임 각도
+//    float swing = glm::radians(limbAngle);
+//
+//    // 4. 왼팔 (노랑)
+//    glm::mat4 lArmM = glm::translate(model, glm::vec3(-0.3f, 0.15f, 0.0f));
+//    lArmM = glm::rotate(lArmM, swing, glm::vec3(1.0f, 0.0f, 0.0f)); // 회전
+//    lArmM = glm::translate(lArmM, glm::vec3(0.0f, -0.2f, 0.0f)); // 회전축 아래로 내리기
+//    drawColoredCube(glm::scale(lArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(1.0f, 0.1f, 0.1f)
+//    );
+//
+//    // 5. 오른팔 
+//    glm::mat4 rArmM = glm::translate(model, glm::vec3(0.3f, 0.15f, 0.0f));
+//    rArmM = glm::rotate(rArmM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));
+//    rArmM = glm::translate(rArmM, glm::vec3(0.0f, -0.2f, 0.0f));
+//    drawColoredCube(glm::scale(rArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(1.0f, 0.1f, 0.1f)
+//    );
+//
+//    // 6. 왼다리 (회색 + 보라 살짝 섞인 색으로 바꾸셨네요)
+//    glm::mat4 lLegM = glm::translate(model, glm::vec3(-0.12f, -0.25f, 0.0f)); // 1. 엉덩이 위치로 이동
+//    lLegM = glm::rotate(lLegM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));          // 2. 회전
+//
+//    lLegM = glm::translate(lLegM, glm::vec3(0.0f, -0.15f, 0.0f));
+//    drawColoredCube(glm::scale(lLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(1.0f, 1.0f, 0.0f)
+//    );
+//
+//    // 7. 오른다리
+//    glm::mat4 rLegM = glm::translate(model, glm::vec3(0.12f, -0.25f, 0.0f));
+//    rLegM = glm::rotate(rLegM, swing, glm::vec3(1.0f, 0.0f, 0.0f));
+//
+//    rLegM = glm::translate(rLegM, glm::vec3(0.0f, -0.15f, 0.0f));
+//    drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(1.0f, 1.0f, 0.0f)
+//    );
+//}
 
-
-// 로봇 그리기 함수
+//
+//// 로봇 그리기 함수
 void drawRobot(float x, float y, float z) {
     // 로봇의 기본 위치 설정
     glm::mat4 model = glm::mat4(1.0f);
@@ -1536,13 +1736,55 @@ void drawRobot(float x, float y, float z) {
     model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
 
     // 1. 몸통
-    glm::mat4 bodyM = glm::scale(model, glm::vec3(0.4f, 0.5f, 0.2f));
-    drawColoredCube(bodyM, glm::vec3(0.0f, 0.0f, 1.0f)); // 파랑
+    glm::mat4 bodyM = glm::scale(model, glm::vec3(0.42f, 0.62f, 0.22f));
 
-    // 2. 머리
-    glm::mat4 headM = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
-    glm::mat4 headScaleM = glm::scale(headM, glm::vec3(0.3f, 0.3f, 0.3f));
-    drawColoredCube(headScaleM, glm::vec3(1.0f, 0.8f, 0.6f)); // 살색
+    drawColoredCube(bodyM, glm::vec3(0.9f, 0.8f, 0.2f)
+    );
+
+
+    // 2. 머리 (맹구 버전: 길고 둥근 머리)
+    glm::mat4 headM = glm::translate(model, glm::vec3(0.0f, 0.48f, 0.0f));
+
+    glm::mat4 headScaleM = glm::scale(headM, glm::vec3(0.32f, 0.48f, 0.32f));
+    // 세로로 더 김
+
+    drawColoredCube(headScaleM, glm::vec3(1.0f, 0.8f, 0.6f)
+    ); // 검정 머리
+
+    // =========================
+// 🎐 맹구 콧물 (머리를 중심으로 회전)
+// =========================
+
+// 1) 머리 중심을 기준으로 회전
+    glm::mat4 snotM = headM;
+
+    // 회전 (snotLag는 스프링 지연 포함된 회전값)
+    snotM = glm::rotate(snotM, snotLag, glm::vec3(0, 1, 0));
+
+    // 2) 머리 중심에서 멀리 떨어진 궤도로 이동 (원 궤적 만들기)
+    float orbitRadius = 0.45f;  // 반지름 — 클수록 크게 돎
+    snotM = glm::translate(
+        snotM,
+        glm::vec3(orbitRadius, -0.10f, 0.0f)
+    );
+
+    // 3) 코 바로 아래로 이동한 것처럼 보이게 하기 위한 보정
+    snotM = glm::rotate(snotM, glm::radians(90.0f), glm::vec3(0, 0, 1));
+
+    // 4) 콧물 스케일 (길게!)
+    snotM = glm::scale(snotM, glm::vec3(0.06f, 0.35f, 0.06f));
+
+    // 5) 색상
+    drawColoredCube(snotM, glm::vec3(0.6f, 0.85f, 1.0f));
+
+
+
+    // ★ 맹구 머리카락 (얇은 층)
+    glm::mat4 hairM = glm::translate(headM, glm::vec3(0.0f, 0.25f, 0.0f));
+    hairM = glm::scale(hairM, glm::vec3(0.35f, 0.055f, 0.35f));
+
+    drawColoredCube(hairM, glm::vec3(0.1f, 0.05f, 0.02f)); // 짙은 갈색 또는 검정
+
 
     // 3. 코 (빨강)
     glm::mat4 noseM = glm::translate(headM, glm::vec3(0.0f, 0.0f, 0.18f)); // 약간 앞으로 뺌
@@ -1556,29 +1798,36 @@ void drawRobot(float x, float y, float z) {
     glm::mat4 lArmM = glm::translate(model, glm::vec3(-0.3f, 0.15f, 0.0f));
     lArmM = glm::rotate(lArmM, swing, glm::vec3(1.0f, 0.0f, 0.0f)); // 회전
     lArmM = glm::translate(lArmM, glm::vec3(0.0f, -0.2f, 0.0f)); // 회전축 아래로 내리기
-    drawColoredCube(glm::scale(lArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(1.0f, 1.0f, 0.0f));
+    drawColoredCube(glm::scale(lArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(0.9f, 0.8f, 0.2f)
+
+    );
 
     // 5. 오른팔 (초록)
     glm::mat4 rArmM = glm::translate(model, glm::vec3(0.3f, 0.15f, 0.0f));
     rArmM = glm::rotate(rArmM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));
     rArmM = glm::translate(rArmM, glm::vec3(0.0f, -0.2f, 0.0f));
-    drawColoredCube(glm::scale(rArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(0.0f, 1.0f, 0.0f));
+    drawColoredCube(glm::scale(rArmM, glm::vec3(0.1f, 0.4f, 0.1f)), glm::vec3(0.9f, 0.8f, 0.2f)
+
+    );
 
     // 6. 왼다리 (회색 + 보라 살짝 섞인 색으로 바꾸셨네요)
     glm::mat4 lLegM = glm::translate(model, glm::vec3(-0.12f, -0.25f, 0.0f)); // 1. 엉덩이 위치로 이동
     lLegM = glm::rotate(lLegM, -swing, glm::vec3(1.0f, 0.0f, 0.0f));          // 2. 회전
 
     lLegM = glm::translate(lLegM, glm::vec3(0.0f, -0.15f, 0.0f));
-    drawColoredCube(glm::scale(lLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.5f, 0.3f, 0.5f));
+    drawColoredCube(glm::scale(lLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.0f, 0.4f, 0.0f)
+
+    );
 
     // 7. 오른다리
     glm::mat4 rLegM = glm::translate(model, glm::vec3(0.12f, -0.25f, 0.0f));
     rLegM = glm::rotate(rLegM, swing, glm::vec3(1.0f, 0.0f, 0.0f));
 
     rLegM = glm::translate(rLegM, glm::vec3(0.0f, -0.15f, 0.0f));
-    drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.3f, 0.3f, 0.3f));
-}
+    drawColoredCube(glm::scale(rLegM, glm::vec3(0.12f, 0.3f, 0.12f)), glm::vec3(0.0f, 0.4f, 0.0f)
 
+    );
+}
 // -----------------렌더링---------------------
 
 // --- 추가 --- 코인 개수 UI 그리기 (좌측 상단)
@@ -1617,25 +1866,86 @@ void drawCoinUI() {
 }
 
 
+//==========================================
+// 색상 인덱스를 받아 RGB 값을 설정하는 헬퍼 함수
+void applyBuildingColor(int colorIndex, GLint locColor) {
+    float r, g, b;
+    switch (colorIndex) {
+        // 1. 베이지 / 크림색 (가장 흔한 건물 색)
+    case 2:
+        r = 0.92f; g = 0.85f; b = 0.70f;
+        break;
+
+        // 2. 짙은 갈색 (벽돌 건물 느낌)
+    case 3:
+        r = 0.45f; g = 0.25f; b = 0.10f;
+        break;
+
+        // 3. 겨자색 / 황토색 (사진 왼쪽의 노란 건물)
+    case 4:
+        r = 0.90f; g = 0.70f; b = 0.20f;
+        break;
+
+        // 4. 붉은 벽돌색 (약간 물빠진 빨강)
+    case 5:
+        r = 0.75f; g = 0.35f; b = 0.25f;
+        break;
+
+        // 5. 회색 / 시멘트색 (도심 건물)
+    case 6:
+        r = 0.60f; g = 0.60f; b = 0.65f;
+        break;
+
+        // 6. 짙은 청회색 (유리 건물 느낌)
+    case 7:
+        r = 0.30f; g = 0.40f; b = 0.50f;
+        break;
+
+        // 기본값: 연한 회색
+    default:
+        r = 0.80f; g = 0.80f; b = 0.80f;
+        break;
+    }
+    glUniform3f(locColor, r, g, b);
+}
+//===============================================
+
 void Display() {
+
 
     if (!gIsGameStarted) {
         Title_Render();
         glutSwapBuffers();
         return;
     }
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
-    //Mat4 view = identity();
-    //--- 카메라(View)와 원근(Projection) 설정 ---
+
+    glClearColor(0.6f, 0.8f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // ---------- Snot Physics Update (콧물 애니메이션 업데이트) ----------
+   // ---- Snot Physics Update ----
+    float targetAngle = snotAngle + 0.1f;
+    snotLag += (targetAngle - snotLag) * 0.08f;
+    snotAngle += 0.08f;          // 기본 회전
+
+
+
+
+
+    // 유니폼 위치 가져오기
+    GLint locIsBuilding = glGetUniformLocation(shaderProgramID, "uIsBuilding");
+    GLint locTexScale = glGetUniformLocation(shaderProgramID, "uTexScale");
+
+    // 기본값 초기화 (건물 아님, 스케일 1배)
+    glUniform1i(locIsBuilding, 0);
+    glUniform2f(locTexScale, 1.0f, 1.0f);
+
+    // ==================================================
+    // 1. 카메라(View) 및 투영(Projection) 설정
+    // ==================================================
     Mat4 viewTranslate = translate(0.0f, -0.9f, -1.0f);
-
-    // 2. 카메라 각도 회전 (X축 회전)
-    // 20도 정도 고개를 숙여서 바닥을 바라봄
-    Mat4 viewRotate = rotateX(20.0f * 3.14159f / 180.0f);
-
-    // 3. 행렬 합치기 (회전 * 이동)
+    Mat4 viewRotate = rotateX(20.0f * 3.14159f / 180.0f); // 20도 숙임
     Mat4 view = multifly(viewRotate, viewTranslate);
     Mat4 projection = perspective(45.0f * 3.14159f / 180.0f, aspect, 0.1f, 100.0f);
 
@@ -1643,88 +1953,214 @@ void Display() {
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
     glUniformMatrix4fv(locView, 1, GL_FALSE, view.m);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, projection.m);
-    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
 
-    // 텍스처/색상 사용 플래그 유니폼
+    // ==================================================
+    // 2. 유니폼 위치 가져오기
+    // ==================================================
+    GLint locModel = glGetUniformLocation(shaderProgramID, "model");
     GLint locUseTexture = glGetUniformLocation(shaderProgramID, "uUseTexture");
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
-
-    // 밝기 유니폼 위치 한 번 구해두기 
-    // --- 터널 그리기 (큐브 벽면 반복) ---
+    GLint locObjectColor = glGetUniformLocation(shaderProgramID, "uObjectColor"); // RGB 색상용
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
+    GLint locTextureSlot = glGetUniformLocation(shaderProgramID, "outTexture"); // 텍스처 슬롯
 
-    // --- 터널 그리기 (큐브 벽면 반복) ---
-    int tunnelSegments = 500; // 터널 길이
-    float tunnelScaleXY = 2.0f; // 터널 너비/높이 배율 (2배)
+    // ==================================================
+    // 3. 도로 및 건물 그리기 루프
+    // ==================================================
+    int tunnelSegments = 300;
+    float tunnelScaleXY = 2.0f;
+    int buildingSpacing = 2;        // 건물 간격 (2칸마다 배치)
 
+
+    // ==================================================
     for (int i = 0; i < tunnelSegments; i++)
     {
+        float zPos = -(float)i * 1.0f + tunnelOffsetZ;
+
+        // ==================================================
+        // 1.거대한 잔디 바닥 
+        // ==================================================
+        // 도로보다 먼저 그려서 아래에 깔리게 합니다.
+
+        glUniform1i(locUseTexture, 1);       // 텍스처켜기
+        glUniform1i(locUseObjectColor, 0);   // 색상 모드 켜기
+        glUniform1i(locIsBuilding, 0);       // 건물 모드 끄기
+        glUniform1f(locBrightness, 1.0f);    // 밝기 최대
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTexID);
+        glUniform2f(locTexScale, 2.0f, 1.0f);
+
+
+
+
+        float grassWidth = 10.0f;
+        Mat4 modelGrass = multifly(translate(0.0f, -0.01f, zPos), scale(grassWidth, tunnelScaleXY, 1.0f));
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, modelGrass.m);
+        drawCubeFace(2); // 윗면 그리기
+
+
+        // ==================================================
+        // 2. [덮어 그리기] 도로 (기차 레일)
+        // ==================================================
+        // 잔디 위에 도로를 덮어씌웁니다.
+
         Mat4 modelTunnelScale = scale(tunnelScaleXY, tunnelScaleXY, 1.0f);
-        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, -(float)i * 1.0f + tunnelOffsetZ);
+        Mat4 modelTunnelTranslate = translate(0.0f, 0.0f, zPos);
         Mat4 model = multifly(modelTunnelTranslate, modelTunnelScale);
 
         glUniformMatrix4fv(locModel, 1, GL_FALSE, model.m);
 
-        float brightness = (i % 2 == 0) ? 0.4f : 1.0f;
+        // 바닥 밝기 설정 (체크무늬)
+        float brightness = 1.0f;
         glUniform1f(locBrightness, brightness);
 
-        // ==============================
-        // 1) 선로 바닥(아랫면)에 tile.bmp 텍스처
-        // ==============================
-        glUniform1i(locUseTexture, 1);          // 텍스처 사용
-        glUniform1i(locUseObjectColor, 0);      // 색상 유니폼은 끄기
-
+        // 바닥 텍스처 적용
+        glUniform1i(locUseTexture, 1);      // 텍스처 ON
+        glUniform1i(locUseObjectColor, 0);  // 색상 OFF
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, floorTexID);
-        drawCubeFace(2);                        // 아랫면만 텍스처로 그림
 
-        // ==============================
-        // 2) 벽면은 기존처럼 색/밝기로만
-        // ==============================
-        glUniform1i(locUseTexture, 0);          // 텍스처 꺼두기 (fragment.glsl이 색/조명 사용하게)
+        drawCubeFace(2); // 윗면(바닥) 그리기
 
-        drawCubeFace(4); // 왼쪽 면
-        drawCubeFace(5); // 오른쪽 면
+
+        // ==================================================
+        // 3. 건물 그리기 (기존 코드 유지)
+        // ==================================================
+        if (i % buildingSpacing == 0)
+        {
+            // 건물은 항상 밝게
+            glUniform1f(locBrightness, 1.0f);
+            //float buildingLen = 1.5f;
+            float buildingLen = 5.0f;
+            float density = 1.8f;
+
+            // --- [왼쪽 건물] ---
+            float h = leftBuildingHeight[i];
+
+            // 건물 높이 계산 (도로 바닥 기준)
+            // tunnelScaleXY가 2.0이므로 도로 바닥 표면은 Y=1.0일 수 있음.
+            // 기존에 건물 배치가 잘 되었다면 이 공식 유지
+            float yPos = -1.0f + (h / 2.0f);
+
+            Mat4 modelLeft = multifly(translate(-2.5f, yPos, zPos), scale(1.0f, h, buildingLen));
+            glUniformMatrix4fv(locModel, 1, GL_FALSE, modelLeft.m);
+
+            // 1) 건물 벽
+            glUniform1i(locUseObjectColor, 1);
+            glUniform1i(locUseTexture, 0);
+            glUniform1i(locIsBuilding, 0);
+            applyBuildingColor(leftBuildingColor[i], locObjectColor);
+            drawCubeFace(0); drawCubeFace(1); drawCubeFace(3); drawCubeFace(4);
+
+            // 2) 건물 창문 (옆면)
+            glUniform1i(locIsBuilding, 1);
+            glUniform2f(locTexScale, buildingLen * density, h * density);
+            drawCubeFace(5);
+
+
+            // --- [오른쪽 건물] ---
+            h = rightBuildingHeight[i];
+            yPos = -1.0f + (h / 2.0f);
+
+            Mat4 modelRight = multifly(translate(2.5f, yPos, zPos), scale(1.0f, h, buildingLen));
+            glUniformMatrix4fv(locModel, 1, GL_FALSE, modelRight.m);
+
+            // 1) 건물 벽
+            glUniform1i(locIsBuilding, 0);
+            glUniform2f(locTexScale, 1.0f, 1.0f);
+            applyBuildingColor(rightBuildingColor[i], locObjectColor);
+            drawCubeFace(0); drawCubeFace(1); drawCubeFace(3); drawCubeFace(5);
+
+            // 2) 건물 창문 (옆면)
+            glUniform1i(locIsBuilding, 1);
+            glUniform2f(locTexScale, buildingLen * density, h * density);
+            drawCubeFace(4);
+        }
+
+        // ==================================================
+    // ★ [5] 도착 지점 (Finish Line) 그리기
+    // ==================================================
+    // for 루프가 끝난 후, 터널의 끝부분(z = -tunnelSegments)에 그립니다.
+
+        float endZ = -(float)tunnelSegments * 1.0f + tunnelOffsetZ;
+
+        // 1. 공통 설정 (텍스처 끄기, 색상 모드 켜기)
+        glUniform1i(locUseTexture, 0);
+        glUniform1i(locUseObjectColor, 1);
+        glUniform1i(locIsBuilding, 0);
+        glUniform1f(locBrightness, 1.0f); // 도착점은 밝게!
+        glUniform2f(locTexScale, 1.0f, 1.0f);
+
+        // --------------------------------------------------
+        // A. 결승선 바닥 (빨간색 카펫 느낌)
+        // --------------------------------------------------
+        glUniform3f(locObjectColor, 0.8f, 0.1f, 0.1f); // 밝은 빨강
+
+        // 바닥보다 살짝 위(-0.99)에 넓게 깝니다.
+        Mat4 finishFloor = multifly(translate(0.0f, -0.99f, endZ), scale(6.0f, 1.0f, 4.0f));
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, finishFloor.m);
+        drawCubeFace(2); // 윗면만 그리면 됨
+
+        // --------------------------------------------------
+        // B. 도착 게이트 기둥 (황금색)
+        // --------------------------------------------------
+        glUniform3f(locObjectColor, 1.0f, 0.84f, 0.0f); // 골드 색상
+
+        float gateHeight = 7.0f;
+        float gateWidth = 1.0f;
+        float gateX = 3.5f; // 선로보다 넓게 배치
+
+        // 왼쪽 기둥
+        Mat4 gateLeft = multifly(translate(-gateX, 0.0f, endZ), scale(gateWidth, gateHeight, gateWidth));
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, gateLeft.m);
+        // 육면체 전체 그리기
+        for (int f = 0; f < 6; f++) drawCubeFace(f);
+
+        // 오른쪽 기둥
+        Mat4 gateRight = multifly(translate(gateX, 0.0f, endZ), scale(gateWidth, gateHeight, gateWidth));
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, gateRight.m);
+        for (int f = 0; f < 6; f++) drawCubeFace(f);
+
+        // --------------------------------------------------
+        // C. 게이트 상단 간판 (파란색)
+        // --------------------------------------------------
+        glUniform3f(locObjectColor, 0.1f, 0.1f, 0.9f); // 진한 파랑
+
+        // 기둥 위를 가로지르는 긴 막대
+        float topY = (gateHeight / 2.0f) - 0.5f;
+        Mat4 gateTop = multifly(translate(0.0f, topY, endZ), scale(gateX * 2.0f + 2.0f, 1.5f, 1.0f));
+        glUniformMatrix4fv(locModel, 1, GL_FALSE, gateTop.m);
+        for (int f = 0; f < 6; f++) drawCubeFace(f);
+
+
+        // 상태 복구
+        glUniform1i(locIsBuilding, 0);
+        glUniform2f(locTexScale, 1.0f, 1.0f);
     }
 
-    // 터널 바닥 위에 침목 먼저 깔기
-    drawWoodPlanks();
-    drawTrains();//기차 그리기
-    drawCoins();
-    drawMagnets();  // 자석 그리기
+    // ==================================================
+    // 4. 나머지 오브젝트 그리기
+    // ==================================================
 
-    // +++ 플레이어 큐브 그리기 +++
+    // 상태 초기화 (그리기 전 리셋)
+    glUniform1i(locUseObjectColor, 0);
+    glUniform1i(locUseTexture, 0);
+    glUniform1f(locBrightness, 1.0f);
 
-    // 1. Model 행렬 계산:
+    drawWoodPlanks(); // 침목
+    drawTrains();     // 기차
+    drawCoins();      // 코인
+    drawMagnets();    // 자석
 
-    // [새로운 로봇 코드]
-    // Y 위치 계산 (기존 로직 유지 + 점프 적용)
-    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f; // 발바닥 위치 보정
-    float finalPlayerY = basePlayerY + jumpY;    // 0.2f는 로봇이 바닥에 박히지 않게 약간 띄움
-
-
+    // 플레이어 그리기
+    float basePlayerY = (-0.5f * tunnelScaleXY) + 0.25f;
+    float finalPlayerY = basePlayerY + jumpY;
     drawRobot(playerX, finalPlayerY, playerZ);
 
 
-    // --- 추가 --- 3레인 스트립 그리기 ---
-       // 바닥을 3등분하는 세로 라인 2개 그리기
-    {
-        // 기준 model: 단위행렬 (라인 자체가 이미 z로 길게 만들어져 있음)
-        Mat4 model = identity();
+    drawCoinUI(); // UI
 
-        // 1) 왼쪽 경계선
-        Mat4 leftLine = model;
-        leftLine.m[12] = -0.25f;          // x 이동 => 값이 작을수록 가운데 좁아짐
-        glUniformMatrix4fv(locModel, 1, GL_FALSE, leftLine.m);
-        //drawLaneLine();
-
-        // 2) 오른쪽 경계선
-        Mat4 rightLine = model;
-        rightLine.m[12] = 0.25f;
-        glUniformMatrix4fv(locModel, 1, GL_FALSE, rightLine.m);
-        //drawLaneLine();
-    }
-    drawCoinUI(); // 코인 UI 그리기
 
     glutSwapBuffers();
 }
@@ -1760,6 +2196,9 @@ int main(int argc, char** argv)
 
     glewInit();
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glClearColor(1.f, 1.f, 1.f, 1.f);
     shaderProgramID = createShaderProgram();
 
@@ -1780,9 +2219,21 @@ int main(int argc, char** argv)
     // 5. 코인 텍스처
     makeTexture("coin_f.bmp", &coinTexID);
 
+    //6. 잔디 텍스쳐
+    makeTexture("grass.bmp", &grassTexID);
+
+
+    // 텍스처가 반복되게 설정 (건물이 아주 길어질 경우를 대비)
+    for (int i = 0; i < 3; i++) {
+        glBindTexture(GL_TEXTURE_2D, buildingTexIDs[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    }
+
+    Title_Init();
     initTrains();
     initCoins(); // 코인 초기화
-    Title_Init(); // 시작 화면 초기화
+    initBuildings();
 
     initMagnets();
 
@@ -1798,19 +2249,6 @@ int main(int argc, char** argv)
     return 0;
 }
 //====================================================
-GLvoid drawScene()
-{
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glUseProgram(shaderProgramID);
-
-    glPointSize(5.0f);
-    glDrawArrays(GL_POINTS, 0, 1);
-
-    glutSwapBuffers();
-
-}
 
 GLvoid Reshape(int w, int h)
 {
@@ -1820,3 +2258,4 @@ GLvoid Reshape(int w, int h)
     gWidth = w;
     gHeight = h;
 }
+

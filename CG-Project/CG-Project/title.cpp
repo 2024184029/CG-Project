@@ -55,11 +55,16 @@ void Title_Init()
 // -------------------------------
 // 렌더링 (단위행렬로 NDC에 바로 뿌림)
 // -------------------------------
+
 void Title_Render()
 {
+    // 1. 깊이 테스트 끄기 (2D 이미지가 맨 앞에 보여야 함)
     glDisable(GL_DEPTH_TEST);
 
-    // 전역 shaderProgramID 를 그대로 사용
+    // ★ [핵심 1] 셰이더 프로그램 사용 시작!
+    glUseProgram(shaderProgramID);
+
+    // 유니폼 위치 가져오기
     GLint locView = glGetUniformLocation(shaderProgramID, "view");
     GLint locProj = glGetUniformLocation(shaderProgramID, "projection");
     GLint locModel = glGetUniformLocation(shaderProgramID, "model");
@@ -67,7 +72,12 @@ void Title_Render()
     GLint locUseObjectColor = glGetUniformLocation(shaderProgramID, "uUseObjectColor");
     GLint locBrightness = glGetUniformLocation(shaderProgramID, "uBrightness");
 
-    // 단위행렬
+    // ★ [핵심 2] 텍스처 슬롯(Sampler) 위치 가져오기
+    // 쉐이더에서 sampler2D 변수명이 "outTexture"라고 가정 (이전 코드 기반)
+    GLint locTextureSlot = glGetUniformLocation(shaderProgramID, "outTexture");
+
+    // 단위행렬 (Identity Matrix) 생성
+    // 인트로 화면은 카메라 변환 없이 화면 좌표(-1 ~ 1)에 그대로 그립니다.
     float I[16] = {
         1,0,0,0,
         0,1,0,0,
@@ -75,21 +85,30 @@ void Title_Render()
         0,0,0,1
     };
 
+    GLint locTexScale = glGetUniformLocation(shaderProgramID, "uTexScale");
+    glUniform2f(locTexScale, 1.0f, 1.0f);
+
+    // 행렬 전송
     glUniformMatrix4fv(locView, 1, GL_FALSE, I);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, I);
     glUniformMatrix4fv(locModel, 1, GL_FALSE, I);
 
-    glUniform1i(locUseTexture, 1);
-    glUniform1i(locUseObjectColor, 0);
-    glUniform1f(locBrightness, 1.0f);
+    // 쉐이더 설정
+    glUniform1i(locUseTexture, 1);       // 텍스처 사용 ON
+    glUniform1i(locUseObjectColor, 0);   // 객체 색상 OFF
+    glUniform1f(locBrightness, 1.0f);    // 밝기 100%
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, titleTexID);
+    // ★ [핵심 3] 텍스처 유닛 연결
+    glActiveTexture(GL_TEXTURE0);        // 0번 슬롯 활성화
+    glBindTexture(GL_TEXTURE_2D, titleTexID); // 타이틀 이미지 바인딩
+    glUniform1i(locTextureSlot, 0);      // 쉐이더에게 0번 슬롯을 쓰라고 알림
 
+    // 그리기
     glBindVertexArray(vaoTitle);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 
+    // 상태 복구 (게임 화면을 위해 다시 켜기)
     glEnable(GL_DEPTH_TEST);
 }
 
